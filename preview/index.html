@@ -346,7 +346,17 @@
     return result;
   }
 
-  // Satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua pemain di timnya bergerak.
+  // Penjaga yang baru bergerak tidak boleh dipilih lagi sebelum penjaga lain bergerak.
+  function markGuardMoved(gg) {
+    S.guards.forEach(q => { q.moved = (q === gg); });
+  }
+  function canSelectGuard(g) {
+    if (!g.moved) return true;
+    S.msg = `Penjaga ${g.id} baru bergerak. Gerakkan penjaga lain dulu.`;
+    return false;
+  }
+
+  // Penyerang: satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua penyerang bergerak.
   function teamPieces() { return S.turn === 'attacker' ? S.attackers : S.guards; }
   function canSelect(p) {
     if (!p.moved) return true;
@@ -453,7 +463,7 @@
     if (g) {
       if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu penjaga per giliran.';
       else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
-      else if (canSelect(g)) {
+      else if (canSelectGuard(g)) {
         S.activeId = g.id;
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
         S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
@@ -473,7 +483,7 @@
           : `Menyentuh hanya bisa dengan dadu terakhir (sisa ${S.pips}). Gerakkan dulu.`;
         return render();
       }
-      gg.moved = true;
+      markGuardMoved(gg);
       S.pips -= 1;
       roundOver(gg, a);
       return render();
@@ -486,7 +496,7 @@
     gg.touchedH = r.flag;
     gg.x = x;
     gg.y = y;
-    gg.moved = true;
+    markGuardMoved(gg);
     S.pips -= r.steps;
     afterAction(`Penjaga ${gg.id} bergerak ${r.steps} kotak.`);
     render();
@@ -498,7 +508,7 @@
     if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
     if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk berganti hadap.'; return render(); }
     gg.facing = gg.facing === 'left' ? 'right' : 'left';
-    gg.moved = true;
+    markGuardMoved(gg);
     S.pips -= 1;
     afterAction(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
     render();
