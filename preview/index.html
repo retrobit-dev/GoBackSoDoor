@@ -181,6 +181,7 @@
     vertical: [[0, 1], [0, -1]],
     horizontal: [[1, 0], [-1, 0]],
     cross: [[1, 1], [1, -1], [-1, 1], [-1, -1]],
+    ortho: [[0, 1], [0, -1], [1, 0], [-1, 0]],
   };
 
   function k(x, y) { return x + ',' + y; }
@@ -280,7 +281,7 @@
     }
     return arr;
   }
-  // 27 kartu gerak + 10 kartu sentuh/menghindar + 10 kartu spesial per tim
+  // 27 kartu gerak + 5 kartu sentuh/menghindar + 5 kartu spesial per tim
   function buildDeck(side) {
     const cards = [];
     for (const dir of DIR_LIST) {
@@ -288,8 +289,8 @@
         for (let c = 0; c < 3; c++) cards.push(newCard({ kind: 'move', dir, n }));
       }
     }
-    for (let i = 0; i < 10; i++) cards.push(newCard(side === 'attacker' ? { kind: 'evade' } : { kind: 'touch' }));
-    for (let i = 1; i <= 10; i++) cards.push(newCard({ kind: 'special', id: i, used: false }));
+    for (let i = 0; i < 5; i++) cards.push(newCard(side === 'attacker' ? { kind: 'evade' } : { kind: 'touch' }));
+    for (let i = 1; i <= 5; i++) cards.push(newCard({ kind: 'special', id: i }));
     return { deck: shuffle(cards), hand: [], discard: [] };
   }
   function drawToFull(side) {
@@ -303,7 +304,7 @@
       P.hand.push(P.deck.pop());
     }
   }
-  // Kartu gerak/sentuh/menghindar masuk buangan setelah dipakai; kartu spesial tetap di tangan (sekali per babak).
+  // Kartu gerak/sentuh/menghindar masuk buangan setelah dipakai. Kartu spesial kembali ke dek (lihat useSpecial).
   function consumeCard(side, card) {
     const P = S.decks[side];
     const i = P.hand.indexOf(card);
@@ -312,11 +313,29 @@
     P.discard.push(card);
     drawToFull(side);
   }
+  // Ambil 1 kartu dari dek (kocok buangan jika dek habis).
+  function drawOne(side) {
+    const P = S.decks[side];
+    if (P.deck.length === 0) {
+      if (P.discard.length === 0) return null;
+      P.deck = shuffle(P.discard);
+      P.discard = [];
+    }
+    const c = P.deck.pop();
+    P.hand.push(c);
+    return c;
+  }
+  // Saat pemain dipilih (sekali per giliran): ambil 1 kartu dari dek ke tangan.
+  function beginPlayerTurn(side) {
+    if (S.drew) return;
+    S.drew = true;
+    if (S.decks[side].hand.length <= HAND_SIZE) drawOne(side);
+  }
   function cardLabel(c) {
     if (c.kind === 'move') return `${DIR_NAME[c.dir]} ${c.n}`;
     if (c.kind === 'touch') return 'Sentuh';
     if (c.kind === 'evade') return 'Menghindar';
-    return `Spesial #${c.id}${c.used ? ' (terpakai)' : ''}`;
+    return `Spesial #${c.id}`;
   }
 
   // ---- Babak ----
@@ -327,6 +346,7 @@
     S.activeId = null;
     S.activeCard = null;
     S.pending = null;
+    S.drew = false;
     S.guards = [];
     S.attackers = [];
     attCounter = 0;
@@ -389,6 +409,7 @@
     S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
     S.activeId = null;
     S.activeCard = null;
+    S.drew = false;
     S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
     S.msg = `${text ? text + ' ' : ''}Giliran ${turnName()}.`;
   }
@@ -398,19 +419,11 @@
     S.guards.forEach(q => { q.moved = (q === gg); });
   }
   function canSelectGuard(g) {
-    if (!g.moved) return true;
-    S.msg = `Penjaga ${g.id} baru bergerak. Gerakkan penjaga lain dulu.`;
-    return false;
+    return true;
   }
-  // Penyerang: satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua penyerang bergerak.
+  // Tidak ada pembatasan urutan pemain.
   function canSelectAttacker(a) {
-    if (!a.moved) return true;
-    if (S.attackers.every(q => q.moved)) {
-      S.attackers.forEach(q => { q.moved = false; });
-      return true;
-    }
-    S.msg = `${a.id} sudah bergerak. Gerakkan penyerang lain dulu.`;
-    return false;
+    return true;
   }
 
   // ---- Simulasi gerak (kartu) ----
@@ -421,8 +434,9 @@
     let guard = 0;
     while (rem > 0 && guard++ < 80) {
       const nx = x + dx, ny = y + dy;
-      if (isWallX(nx)) { dx = -dx; rem--; continue; }
-      if (ny < 0 || ny >= ROWS) { dy = -dy; rem--; continue; }
+      // Pantulan: arah dibalik, angka kartu tidak berkurang.
+      if (isWallX(nx)) { dx = -dx; continue; }
+      if (ny < 0 || ny >= ROWS) { dy = -dy; continue; }
       if (occupiedBy(nx, ny, a.id)) return null;
       x = nx; y = ny;
       path.push(k(x, y));
@@ -450,8 +464,9 @@
     let guard = 0;
     while (rem > 0 && guard++ < 80) {
       const nx = x + dx, ny = y + dy;
-      if (isWallX(nx)) { dx = -dx; rem--; continue; }
-      if (ny < 0 || ny >= ROWS) { dy = -dy; rem--; continue; }
+      // Pantulan: arah dibalik, angka kartu tidak berkurang.
+      if (isWallX(nx)) { dx = -dx; continue; }
+      if (ny < 0 || ny >= ROWS) { dy = -dy; continue; }
       if (occupiedBy(nx, ny, g.id)) return null;
       const kk = k(nx, ny);
       const seen = visited.has(kk);
@@ -477,10 +492,11 @@
   }
   function guardTargets(g, card) {
     const map = new Map();
-    if (card.dir === 'cross') return map;
-    if (g.type === 'h' && card.dir !== 'horizontal') return map;
-    if (g.type === 'v' && card.dir !== 'vertical') return map;
-    for (const [dx, dy] of SIGNS[card.dir]) {
+    if (card.dir !== 'cross') {
+      if (g.type === 'h' && card.dir !== 'horizontal') return map;
+      if (g.type === 'v' && card.dir !== 'vertical') return map;
+    }
+    for (const [dx, dy] of (card.dir === 'cross' ? SIGNS.ortho : SIGNS[card.dir])) {
       const r = simGuard(g, dx, dy, card.n);
       if (r && !map.has(k(r.end.x, r.end.y))) map.set(k(r.end.x, r.end.y), r);
     }
@@ -586,11 +602,16 @@
     roundOver(`Penjaga ${g.id} menyentuh ${a.id}. Babak selesai.`);
   }
 
+  // Kartu spesial: dikembalikan ke dek (bisa dipakai lagi). Efek belum ditentukan.
   function useSpecial(card) {
-    if (card.used) { S.msg = 'Kartu spesial ini sudah dipakai di babak ini.'; return; }
-    card.used = true;
-    S.activeCard = null;
-    S.msg = `Kartu spesial #${card.id} dipakai. (Efek belum ditentukan.)`;
+    if (!S.activeId) { S.msg = 'Pilih pemain dulu, lalu kartu spesial.'; return; }
+    const P = S.decks[S.turn];
+    const i = P.hand.indexOf(card);
+    if (i < 0) return;
+    P.hand.splice(i, 1);
+    P.deck.push(card);
+    shuffle(P.deck);
+    endTurn(`Kartu spesial #${card.id} dipakai dan kembali ke dek (efek belum ditentukan).`);
   }
 
   function selectCard(card) {
@@ -613,7 +634,7 @@
     if (a) {
       if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu pemain per giliran.';
       else if (S.activeId === a.id) S.msg = `Penyerang ${a.id} dipilih.`;
-      else if (canSelectAttacker(a)) { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Pilih kartu gerak, lalu klik tujuan.`; }
+      else if (canSelectAttacker(a)) { S.activeId = a.id; beginPlayerTurn('attacker'); S.msg = `Penyerang ${a.id} dipilih. Pilih kartu gerak, lalu klik tujuan.`; }
       return;
     }
     const act = getAtt(S.activeId);
@@ -631,6 +652,7 @@
       else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih.`;
       else if (canSelectGuard(g)) {
         S.activeId = g.id;
+        beginPlayerTurn('guard');
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
         S.msg = `Penjaga ${g.id} dipilih. Pilih kartu, lalu klik tujuan.`;
       }
@@ -731,7 +753,7 @@
       const b = document.createElement('button');
       b.className = 'card ' + card.kind + (S.activeCard === card ? ' selected' : '');
       b.textContent = cardLabel(card);
-      b.disabled = S.phase === 'over' || (card.kind === 'special' && card.used) || (side !== S.turn && !S.pending);
+      b.disabled = S.phase === 'over' || (side !== S.turn && !S.pending);
       b.addEventListener('click', () => { selectCard(card); render(); });
       handEl.appendChild(b);
     });
