@@ -238,12 +238,12 @@
     if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
     if (H_LANES.includes(y)) {
       if (S.guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
-      S.guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down', visited: null });
+      S.guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down', visited: null, touchedH: false, moved: false });
       return '';
     }
     if (x === CENTER_X) {
       if (vCount() >= 1) return 'Penjaga kolom sudah ada.';
-      S.guards.push({ id: 'V1', type: 'v', x, y, facing: 'right', visited: null });
+      S.guards.push({ id: 'V1', type: 'v', x, y, facing: 'right', visited: null, touchedH: false, moved: false });
       return '';
     }
     return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
@@ -255,7 +255,7 @@
     if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
     if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
     attCounter++;
-    S.attackers.push({ id: 'A' + attCounter, x, y });
+    S.attackers.push({ id: 'A' + attCounter, x, y, moved: false });
     return '';
   }
 
@@ -312,22 +312,51 @@
     return result;
   }
 
-  // Langkah penjaga: hanya lurus sesuai garis (kiri-kanan atau atas-bawah), 1 mata dadu per kotak,
-  // tidak boleh kembali ke kotak yang sudah dilewati dalam satu giliran.
+  // Langkah penjaga: lurus sesuai garisnya, 1 mata dadu per kotak.
+  // Kotak yang sudah dilewati dalam satu giliran tidak boleh dilewati lagi, kecuali:
+  // - penjaga baris (antar baris) yang sedang berada di kotak sebelah dinding (kolom 2 atau 12);
+  // - penjaga kolom (antar kolom) yang sudah menyentuh garis antar baris (persimpangan) di giliran ini.
   function guardReach(g) {
     const result = new Map();
-    const vis = g.visited || new Set([k(g.x, g.y)]);
     const dirs = g.type === 'h' ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
-    for (const d of dirs) {
-      let x = g.x, y = g.y;
-      for (let s = 1; s <= S.pips; s++) {
-        x += d[0];
-        y += d[1];
-        if (!inBounds(x, y) || zoneOf(x, y) === 'wall' || occupiedBy(x, y, g.id) || vis.has(k(x, y))) break;
-        result.set(k(x, y), s);
+    const p = S.pips;
+    const startVisited = g.visited || new Set([k(g.x, g.y)]);
+    function canRevisit(x, flag) {
+      if (g.type === 'h') return x === 1 || x === COLS - 2;
+      return flag;
+    }
+    function dfs(x, y, steps, path, visited, flag) {
+      if (steps >= p) return;
+      for (const d of dirs) {
+        const nx = x + d[0], ny = y + d[1];
+        if (!inBounds(nx, ny) || zoneOf(nx, ny) === 'wall' || occupiedBy(nx, ny, g.id)) continue;
+        const kk = k(nx, ny);
+        const seen = visited.has(kk);
+        if (seen && !canRevisit(x, flag)) continue;
+        const nflag = flag || (g.type === 'v' && H_LANES.includes(ny));
+        const newPath = path.concat([kk]);
+        const prev = result.get(kk);
+        if (!prev || prev.steps > steps + 1) result.set(kk, { steps: steps + 1, path: newPath, flag: nflag });
+        if (!seen) visited.add(kk);
+        dfs(nx, ny, steps + 1, newPath, visited, nflag);
+        if (!seen) visited.delete(kk);
       }
     }
+    dfs(g.x, g.y, 0, [], new Set(startVisited), !!g.touchedH);
     return result;
+  }
+
+  // Satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua pemain di timnya bergerak.
+  function teamPieces() { return S.turn === 'attacker' ? S.attackers : S.guards; }
+  function canSelect(p) {
+    if (!p.moved) return true;
+    const team = teamPieces();
+    if (team.every(q => q.moved)) {
+      team.forEach(q => { q.moved = false; });
+      return true;
+    }
+    S.msg = `${p.id} sudah bergerak. Gerakkan pemain lain dulu.`;
+    return false;
   }
 
   function rollDice() {
@@ -343,7 +372,7 @@
     S.roll = null;
     S.pips = 0;
     S.activeId = null;
-    S.guards.forEach(g => { g.visited = null; });
+    S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
     S.msg = `${prefix ? prefix + ' ' : ''}Giliran ${turnName()}: lempar dadu.`;
   }
 
@@ -403,7 +432,8 @@
     if (S.turn === 'attacker') {
       if (a) {
         if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu penyerang per giliran.';
-        else { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`; }
+        else if (S.activeId === a.id) S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`;
+        else if (canSelect(a)) { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`; }
         return render();
       }
       const act = getAtt(S.activeId);
@@ -413,6 +443,7 @@
       const L = reach.get(k(x, y));
       act.x = x;
       act.y = y;
+      act.moved = true;
       S.pips -= L;
       afterAction(`Penyerang ${act.id} bergerak ${L} kotak.`);
       return render();
@@ -421,7 +452,8 @@
     // Giliran penjaga
     if (g) {
       if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu penjaga per giliran.';
-      else {
+      else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
+      else if (canSelect(g)) {
         S.activeId = g.id;
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
         S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
@@ -435,22 +467,28 @@
         S.msg = 'Penyerang itu tidak ada di kotak merah penjaga.';
         return render();
       }
-      if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk menyentuh.'; return render(); }
+      if (S.pips !== 1) {
+        S.msg = S.pips < 1
+          ? 'Tidak ada sisa dadu untuk menyentuh.'
+          : `Menyentuh hanya bisa dengan dadu terakhir (sisa ${S.pips}). Gerakkan dulu.`;
+        return render();
+      }
+      gg.moved = true;
       S.pips -= 1;
       roundOver(gg, a);
       return render();
     }
     const reach = guardReach(gg);
     if (!reach.has(k(x, y))) { S.msg = 'Kotak itu tidak bisa dicapai penjaga ini.'; return render(); }
-    const L = reach.get(k(x, y));
+    const r = reach.get(k(x, y));
     if (!gg.visited) gg.visited = new Set([k(gg.x, gg.y)]);
-    const dx = Math.sign(x - gg.x), dy = Math.sign(y - gg.y);
-    let cx = gg.x, cy = gg.y;
-    for (let i = 0; i < L; i++) { cx += dx; cy += dy; gg.visited.add(k(cx, cy)); }
+    r.path.forEach(kk => gg.visited.add(kk));
+    gg.touchedH = r.flag;
     gg.x = x;
     gg.y = y;
-    S.pips -= L;
-    afterAction(`Penjaga ${gg.id} bergerak ${L} kotak.`);
+    gg.moved = true;
+    S.pips -= r.steps;
+    afterAction(`Penjaga ${gg.id} bergerak ${r.steps} kotak.`);
     render();
   }
 
@@ -460,6 +498,7 @@
     if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
     if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk berganti hadap.'; return render(); }
     gg.facing = gg.facing === 'left' ? 'right' : 'left';
+    gg.moved = true;
     S.pips -= 1;
     afterAction(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
     render();
@@ -498,7 +537,7 @@
   function touchTargets() {
     if (S.phase !== 'play' || S.turn !== 'guard' || S.roll === null) return new Set();
     const g = getGuard(S.activeId);
-    if (!g || S.pips < 1) return new Set();
+    if (!g || S.pips !== 1) return new Set();
     return new Set(threatCells(g).filter(c => attAt(c.x, c.y)).map(c => k(c.x, c.y)));
   }
 
