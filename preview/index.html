@@ -11,7 +11,8 @@
     --white: #ffffff;
     --field: #c5e1a5;
     --field-alt: #aed581;
-    --start: #8d6e63;
+    --start: #66bb6a;
+    --below: #8d6e63;
     --end: #90caf9;
     --threat: rgba(229, 57, 53, 0.5);
     --attacker: #1e88e5;
@@ -72,6 +73,7 @@
   .cell.z-lane { background: var(--white); }
   .cell.z-wall { background: #e53935; }
   .cell.z-start { background: var(--start); }
+  .cell.z-below { background: var(--below); }
   .cell.z-end { background: var(--end); }
   .cell.z-field { background: var(--field); }
   .cell.z-field.alt { background: var(--field-alt); }
@@ -127,7 +129,8 @@
 <div class="legend">
   <span><span class="swatch" style="background:#fff"></span>Garis batas (kolom & baris)</span>
   <span><span class="swatch" style="background:#e53935"></span>Dinding kiri & kanan</span>
-  <span><span class="swatch" style="background:var(--start)"></span>Garis start (coklat)</span>
+  <span><span class="swatch" style="background:var(--below)"></span>Baris di bawah start (coklat)</span>
+  <span><span class="swatch" style="background:var(--start)"></span>Garis start (hijau)</span>
   <span><span class="swatch" style="background:var(--end)"></span>Garis akhir</span>
   <span><span class="swatch" style="background:var(--field)"></span>Lapangan 5×5</span>
   <span><span class="sq" style="background:var(--guard-h)"></span>Penjaga baris (kiri–kanan)</span>
@@ -274,7 +277,7 @@
         const zone = zoneOf(x, y);
         let cls = 'cell z-' + zone;
         if (zone === 'field' && (x + y) % 2) cls += ' alt';
-        if (y === START_Y + 1 && zone !== 'wall') cls = 'cell z-start'; // baris di bawah start: coklat
+        if (y === START_Y + 1 && zone !== 'wall') cls = 'cell z-below'; // baris di bawah start: coklat
         if (threat.has(key(x, y))) cls += ' threat';
         if (valid.some(c => c.x === x && c.y === y)) cls += ' valid';
         if (sel && sel.x === x && sel.y === y) cls += ' selected';
