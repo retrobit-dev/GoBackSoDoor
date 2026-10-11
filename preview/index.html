@@ -143,14 +143,14 @@
   const RIGHT_WALL = 12;
   const CENTER_X = 6;
   const H_LANES = [1, 7, 13, 19];   // batas antar baris: jalur penjaga baris
-  const START_Y = 0;
-  const END_Y = 20;
+  const START_Y = 20;   // garis start di bawah
+  const END_Y = 0;      // garis finish di atas
 
   function zoneOf(x, y) {
     if (x === LEFT_WALL || x === RIGHT_WALL) return 'wall';
-    if (H_LANES.includes(y) || x === CENTER_X) return 'lane';
     if (y === START_Y) return 'start';
     if (y === END_Y) return 'end';
+    if (H_LANES.includes(y) || x === CENTER_X) return 'lane';
     return 'field';
   }
   const ZONE_NAME = {
@@ -184,10 +184,10 @@
 
   function presetGuards() {
     return [
-      { id: 'H1', type: 'h', x: 3, y: 1, facing: 'up' },
-      { id: 'H2', type: 'h', x: 9, y: 7, facing: 'up' },
-      { id: 'H3', type: 'h', x: 3, y: 13, facing: 'up' },
-      { id: 'H4', type: 'h', x: 9, y: 19, facing: 'up' },
+      { id: 'H1', type: 'h', x: 3, y: 19, facing: 'down' },
+      { id: 'H2', type: 'h', x: 9, y: 13, facing: 'down' },
+      { id: 'H3', type: 'h', x: 3, y: 7, facing: 'down' },
+      { id: 'H4', type: 'h', x: 9, y: 1, facing: 'down' },
       { id: 'V1', type: 'v', x: CENTER_X, y: 10, facing: 'right' },
     ];
   }
@@ -204,7 +204,7 @@
   // Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap).
   function threatCells(g) {
     const d = g.type === 'h'
-      ? { dx: 0, dy: -1 }
+      ? { dx: 0, dy: 1 }
       : (g.facing === 'left' ? { dx: -1, dy: 0 } : { dx: 1, dy: 0 });
     const fx = g.x + d.dx;
     const fy = g.y + d.dy;
@@ -234,7 +234,7 @@
   }
 
   function arrowOf(g) {
-    if (g.type === 'h') return '▲';                 // menghadap garis start
+    if (g.type === 'h') return '▼';                 // menghadap garis start (di bawah)
     return g.facing === 'left' ? '◀' : '▶';
   }
 
@@ -242,7 +242,7 @@
     if (touchMsg) return touchMsg;
     if (!sel) return 'Klik penjaga (ungu/teal) untuk memilihnya, lalu klik kotak yang disorot untuk memindahkannya.';
     if (sel.type === 'h') {
-      return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▲). Gunakan ← → atau klik kotak yang disorot.`;
+      return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▼). Gunakan ← → atau klik kotak yang disorot.`;
     }
     return `Dipilih ${sel.id} (penjaga kolom): bergerak atas–bawah, menghadap ${sel.facing === 'left' ? 'kiri' : 'kanan'}. ↑ ↓ untuk bergerak, ← → untuk memilih hadap.`;
   }
