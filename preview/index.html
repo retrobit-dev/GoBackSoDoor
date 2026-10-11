@@ -68,7 +68,8 @@
     background: var(--threat);
     pointer-events: none;
   }
-  .cell.z-wall, .cell.z-lane { background: var(--white); }
+  .cell.z-lane { background: var(--white); }
+  .cell.z-wall { background: #e53935; }
   .cell.z-start { background: var(--start); }
   .cell.z-end { background: var(--end); }
   .cell.z-field { background: var(--field); }
@@ -124,6 +125,7 @@
 
 <div class="legend">
   <span><span class="swatch" style="background:#fff"></span>Garis batas (kolom & baris)</span>
+  <span><span class="swatch" style="background:#e53935"></span>Dinding kiri & kanan</span>
   <span><span class="swatch" style="background:var(--start)"></span>Garis start</span>
   <span><span class="swatch" style="background:var(--end)"></span>Garis akhir</span>
   <span><span class="swatch" style="background:var(--field)"></span>Lapangan 5×5</span>
@@ -138,7 +140,7 @@
   // Kolom (x): 0 = dinding, 1-5 = blok kiri, 6 = batas tengah, 7-11 = blok kanan, 12 = dinding
   // Baris (y): 0 = garis start, 1/7/13/19 = batas antar baris, 2-6/8-12/14-18 = blok lapangan, 20 = garis akhir
   const COLS = 13;
-  const ROWS = 21;
+  const ROWS = 22;
   const LEFT_WALL = 0;
   const RIGHT_WALL = 12;
   const CENTER_X = 6;
@@ -154,7 +156,7 @@
     return 'field';
   }
   const ZONE_NAME = {
-    wall: 'Garis batas kolom (putih)',
+    wall: 'Dinding (merah)',
     lane: 'Garis batas antar baris/kolom (putih)',
     start: 'Garis start',
     end: 'Garis akhir',
