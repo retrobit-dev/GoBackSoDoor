@@ -112,7 +112,7 @@
 <body>
 
 <h1>Gobak Sodor — Preview Papan</h1>
-<p class="subtitle">Pasang 5 penjaga dan 5 penyerang (penyerang di kotak coklat). Lalu bergantian: lempar dadu, pilih satu pemain, gerakkan sesuai dadu. Penjaga yang menyentuh penyerang di kotak merah mengakhiri babak dan peran ditukar.</p>
+<p class="subtitle">Pasang 5 penjaga dan 5 penyerang (penyerang di kotak coklat). Lalu bergantian: lempar dadu, pilih satu pemain, gerakkan sesuai dadu. Penyerang yang mencapai finish mendapat 1 poin. Penjaga yang menyentuh penyerang di kotak merah mengakhiri babak dan peran ditukar. Tim pertama dengan 5 poin menang.</p>
 
 <div class="hud" id="hud">Babak 1</div>
 
@@ -200,8 +200,15 @@
     activeId: null,      // satu pemain per giliran
     guards: [],          // { id, type:'h'|'v', x, y, facing, visited }
     attackers: [],       // { id, x, y }
+    attTeam: 'A',        // tim yang sedang menjadi penyerang
+    scores: { A: 0, B: 0 },
+    winner: null,
     msg: '',
   };
+  const WIN_SCORE = 5;
+  function teamName(t) { return 'Tim ' + t; }
+  function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+  function turnTeam() { return S.turn === 'attacker' ? S.attTeam : otherTeam(S.attTeam); }
   let attCounter = 0;
   let cellEls = [];
 
@@ -217,7 +224,7 @@
   function hCount() { return S.guards.filter(g => g.type === 'h').length; }
   function vCount() { return S.guards.filter(g => g.type === 'v').length; }
   function isBrown(x, y) { return y === BELOW_Y && zoneOf(x, y) !== 'wall'; }
-  function turnName() { return S.turn === 'attacker' ? 'Penyerang' : 'Penjaga'; }
+  function turnName() { return (S.turn === 'attacker' ? 'Penyerang' : 'Penjaga') + ' (' + teamName(turnTeam()) + ')'; }
 
   // Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap).
   function threatCells(g) {
@@ -396,11 +403,12 @@
     S.roll = null;
     S.pips = 0;
     S.activeId = null;
-    S.msg = `Penjaga ${g.id} menyentuh penyerang ${a.id} di kotak merah. Babak selesai.`;
+    S.msg = `Penjaga ${g.id} (${teamName(otherTeam(S.attTeam))}) menyentuh penyerang ${a.id} di kotak merah. Babak selesai.`;
   }
 
   function nextRound() {
     if (S.phase !== 'over') return;
+    S.attTeam = otherTeam(S.attTeam);
     S.round++;
     S.guards = [];
     S.attackers = [];
@@ -411,13 +419,31 @@
     S.roll = null;
     S.pips = 0;
     S.activeId = null;
-    S.msg = `Babak ${S.round}: peran ditukar. Pasang 5 penjaga dulu, lalu 5 penyerang di kotak coklat.`;
+    S.msg = `Babak ${S.round}: peran ditukar. ${teamName(S.attTeam)} sekarang penyerang. Pasang 5 penjaga dulu, lalu 5 penyerang di kotak coklat.`;
+  }
+
+  function gameWon() {
+    S.phase = 'won';
+    S.winner = S.attTeam;
+    S.roll = null;
+    S.pips = 0;
+    S.activeId = null;
+    S.msg = `${teamName(S.winner)} menang dengan ${S.scores[S.winner]} poin! Permainan berakhir.`;
+  }
+
+  function newGame() {
+    S.phase = 'setup'; S.tool = 'guard'; S.round = 1; S.turn = 'attacker'; S.attTeam = 'A';
+    S.roll = null; S.pips = 0; S.activeId = null; S.guards = []; S.attackers = [];
+    S.scores = { A: 0, B: 0 }; S.winner = null;
+    attCounter = 0;
+    S.msg = 'Permainan baru. ' + setupText();
   }
 
   // ---- Interaksi kotak ----
   function onCell(x, y) {
     if (S.phase === 'setup') return onSetupCell(x, y);
     if (S.phase === 'over') { S.msg = 'Babak selesai. Tekan "Babak Berikutnya" untuk melanjutkan.'; return render(); }
+    if (S.phase === 'won') { S.msg = 'Permainan sudah berakhir. Tekan "Main Lagi" untuk memulai ulang.'; return render(); }
     return onPlayCell(x, y);
   }
 
@@ -455,6 +481,20 @@
       act.y = y;
       act.moved = true;
       S.pips -= L;
+      if (y === END_Y) {
+        S.attackers = S.attackers.filter(q => q !== act);
+        S.scores[S.attTeam] += 1;
+        S.activeId = null;
+        S.msg = `Penyerang ${act.id} mencapai finish: +1 poin untuk ${teamName(S.attTeam)}.`;
+        if (S.scores[S.attTeam] >= WIN_SCORE) { gameWon(); return render(); }
+        if (S.attackers.length === 0) {
+          S.phase = 'over'; S.roll = null; S.pips = 0;
+          S.msg = `Semua penyerang sudah mencapai finish. Babak selesai.`;
+          return render();
+        }
+        if (S.pips <= 0) endTurn(S.msg);
+        return render();
+      }
       afterAction(`Penyerang ${act.id} bergerak ${L} kotak.`);
       return render();
     }
@@ -591,11 +631,12 @@
       }
     }
 
-    const phaseName = S.phase === 'setup' ? 'Pemasangan' : S.phase === 'play' ? 'Permainan' : 'Babak selesai';
+    const phaseName = S.phase === 'setup' ? 'Pemasangan' : S.phase === 'play' ? 'Permainan' : S.phase === 'over' ? 'Babak selesai' : 'Permainan selesai';
+    const scoreText = `Skor: ${teamName('A')} ${S.scores.A} – ${teamName('B')} ${S.scores.B}`;
     const rollText = S.roll === null ? '-' : S.roll;
     hudEl.textContent = S.phase === 'play'
-      ? `Babak ${S.round} · ${phaseName} · Giliran: ${turnName()} · Dadu: ${rollText} · Sisa: ${S.pips}`
-      : `Babak ${S.round} · ${phaseName}`;
+      ? `Babak ${S.round} · ${phaseName} · Giliran: ${turnName()} · Dadu: ${rollText} · Sisa: ${S.pips} · ${scoreText}`
+      : `Babak ${S.round} · ${phaseName} · ${scoreText}`;
     statusEl.textContent = S.msg || (S.phase === 'setup' ? setupText() : '');
     updateButtons();
   }
@@ -610,7 +651,8 @@
     btnEnd.disabled = !(S.phase === 'play' && S.roll !== null);
     const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
     btnFace.disabled = !(S.phase === 'play' && S.turn === 'guard' && gg && gg.type === 'v' && S.pips >= 1);
-    btnNext.disabled = S.phase !== 'over';
+    btnNext.disabled = !(S.phase === 'over' || S.phase === 'won');
+    btnNext.textContent = S.phase === 'won' ? 'Main Lagi' : 'Babak Berikutnya (tukar peran)';
   }
 
   function showHover(x, y) {
@@ -631,11 +673,9 @@
   btnRoll.addEventListener('click', () => { rollDice(); render(); });
   btnEnd.addEventListener('click', endTurnClick);
   btnFace.addEventListener('click', turnFace);
-  btnNext.addEventListener('click', () => { nextRound(); render(); });
+  btnNext.addEventListener('click', () => { if (S.phase === 'won') newGame(); else nextRound(); render(); });
   document.getElementById('btn-reset').addEventListener('click', () => {
-    S.phase = 'setup'; S.tool = 'guard'; S.round = 1; S.turn = 'attacker';
-    S.roll = null; S.pips = 0; S.activeId = null; S.guards = []; S.attackers = [];
-    attCounter = 0; S.msg = 'Papan direset.';
+    newGame();
     render();
   });
 
