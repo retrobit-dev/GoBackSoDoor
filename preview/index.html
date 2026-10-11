@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gobak Sodor — Preview Papan</title>
+<style>
+  :root {
+    --cell: 34px;
+    --wall: #4e342e;
+    --field: #c5e1a5;
+    --field-alt: #aed581;
+    --start: #ffd54f;
+    --end: #ff8a65;
+    --block-line: #33691e;
+    --attacker: #1e88e5;
+    --defender: #e53935;
+    --hover: rgba(255, 255, 255, 0.55);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #1b2a1f;
+    color: #eef5ea;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  h1 { margin: 4px 0 2px; font-size: 22px; }
+  .subtitle { margin: 0 0 14px; opacity: 0.75; font-size: 14px; }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px;
+  }
+  .toolbar button {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #2e3f33;
+    color: #eef5ea;
+  }
+  .toolbar button.active { border-color: #fff; }
+  .toolbar button.attacker { background: var(--attacker); }
+  .toolbar button.defender { background: var(--defender); }
+  .toolbar button.reset { background: #5d4037; }
+
+  .board-wrap { position: relative; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(12, var(--cell));
+    grid-template-rows: repeat(17, var(--cell));
+    border: 4px solid var(--wall);
+    border-radius: 6px;
+    background: var(--wall);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    position: relative;
+  }
+  .cell {
+    position: relative;
+    background: var(--field);
+    border: 1px solid rgba(51, 105, 30, 0.35);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  .cell.wall { background: var(--wall); cursor: not-allowed; border-color: transparent; }
+  .cell.start { background: var(--start); }
+  .cell.end { background: var(--end); }
+  .cell.alt { background: var(--field-alt); }
+  .cell:hover:not(.wall) { box-shadow: inset 0 0 0 3px var(--hover); }
+
+  /* Garis tebal pemisah antar blok 5x5 dan blok tepi */
+  .cell.bl-r { border-right: 3px solid var(--block-line); }
+  .cell.bl-b { border-bottom: 3px solid var(--block-line); }
+
+  .piece {
+    width: 72%; height: 72%;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+  .piece.attacker { background: var(--attacker); }
+  .piece.defender { background: var(--defender); }
+
+  .zone-label {
+    position: absolute;
+    font-size: 11px;
+    font-weight: 700;
+    color: #33691e;
+    pointer-events: none;
+    letter-spacing: 1px;
+  }
+
+  .info {
+    margin-top: 14px;
+    min-height: 44px;
+    font-size: 15px;
+    text-align: center;
+    background: #243428;
+    padding: 10px 16px;
+    border-radius: 10px;
+    max-width: 720px;
+  }
+  .legend {
+    margin-top: 14px;
+    display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;
+    font-size: 13px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,0.3); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h1>Gobak Sodor — Preview Papan</h1>
+<p class="subtitle">Papan 4 kolom × 5 baris blok. Klik kotak untuk menempatkan pion.</p>
+
+<div class="toolbar">
+  <button id="tool-attacker" class="attacker active" data-tool="attacker">Pion Penyerang</button>
+  <button id="tool-defender" class="defender" data-tool="defender">Pion Penjaga</button>
+  <button id="tool-erase" data-tool="erase">Hapus</button>
+  <button id="btn-reset" class="reset">Reset Papan</button>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<div class="info" id="info">Pilih alat lalu klik kotak pada papan.</div>
+
+<div class="legend">
+  <span><span class="swatch" style="background:var(--wall)"></span>Dinding samping (kolom 1 & 4)</span>
+  <span><span class="swatch" style="background:var(--start)"></span>Garis awal (baris 1)</span>
+  <span><span class="swatch" style="background:var(--end)"></span>Garis akhir (baris 5)</span>
+  <span><span class="swatch" style="background:var(--field)"></span>Lapangan 5×5</span>
+  <span><span class="dot" style="background:var(--attacker)"></span>Penyerang</span>
+  <span><span class="dot" style="background:var(--defender)"></span>Penjaga</span>
+</div>
+
+<script>
+(function () {
+  // ---- Konfigurasi struktur papan ----
+  // Lebar tiap kolom blok (dalam kotak) dan tinggi tiap baris blok.
+  const COL_WIDTHS = [1, 5, 5, 1];   // kolom 1..4
+  const ROW_HEIGHTS = [1, 5, 5, 5, 1]; // baris 1..5
+
+  const COLS = COL_WIDTHS.reduce((a, b) => a + b, 0); // 12
+  const ROWS = ROW_HEIGHTS.reduce((a, b) => a + b, 0); // 17
+
+  // Pemetaan kotak -> blok (untuk label dan garis pemisah)
+  function blockIndex(sizes, pos) {
+    let acc = 0;
+    for (let i = 0; i < sizes.length; i++) {
+      acc += sizes[i];
+      if (pos < acc) return i;
+    }
+    return sizes.length - 1;
+  }
+  function blockStart(sizes, idx) {
+    let acc = 0;
+    for (let i = 0; i < idx; i++) acc += sizes[i];
+    return acc;
+  }
+
+  function zoneOf(x, y) {
+    const c = blockIndex(COL_WIDTHS, x);
+    const r = blockIndex(ROW_HEIGHTS, y);
+    if (c === 0 || c === 3) return 'wall';
+    if (r === 0) return 'start';
+    if (r === 4) return 'end';
+    return 'field';
+  }
+
+  // ---- State ----
+  const pieces = new Map(); // "x,y" -> 'attacker' | 'defender'
+  let tool = 'attacker';
+
+  const boardEl = document.getElementById('board');
+  const infoEl = document.getElementById('info');
+  boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
+  boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell))`;
+
+  const cellEls = [];
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const el = document.createElement('div');
+      el.className = 'cell';
+      const zone = zoneOf(x, y);
+      if (zone === 'wall') el.classList.add('wall');
+      else if (zone === 'start') el.classList.add('start');
+      else if (zone === 'end') el.classList.add('end');
+      else if ((x + y) % 2) el.classList.add('alt');
+
+      // Garis pemisah blok: setelah kolom blok terakhir (kecuali kolom 4) dan setelah baris blok
+      const colEnd = blockStart(COL_WIDTHS, blockIndex(COL_WIDTHS, x) + 1) - 1;
+      const rowEnd = blockStart(ROW_HEIGHTS, blockIndex(ROW_HEIGHTS, y) + 1) - 1;
+      if (x === colEnd && x < COLS - 1) el.classList.add('bl-r');
+      if (y === rowEnd && y < ROWS - 1) el.classList.add('bl-b');
+
+      el.dataset.x = x;
+      el.dataset.y = y;
+      el.addEventListener('click', () => onCellClick(x, y));
+      el.addEventListener('mouseenter', () => showHover(x, y));
+      boardEl.appendChild(el);
+      cellEls[y * COLS + x] = el;
+    }
+  }
+
+  function blockLabel(x, y) {
+    const c = blockIndex(COL_WIDTHS, x) + 1;
+    const r = blockIndex(ROW_HEIGHTS, y) + 1;
+    return `Blok K${c}-B${r}`;
+  }
+
+  function showHover(x, y) {
+    const zone = zoneOf(x, y);
+    const zoneName = { wall: 'Dinding', start: 'Garis awal', end: 'Garis akhir', field: 'Lapangan' }[zone];
+    const key = `${x},${y}`;
+    const occ = pieces.has(key) ? ` — berisi ${pieces.get(key) === 'attacker' ? 'penyerang' : 'penjaga'}` : '';
+    infoEl.textContent = `Kotak (kolom ${x + 1}, baris ${y + 1}) · ${blockLabel(x, y)} · ${zoneName}${occ}`;
+  }
+
+  function render() {
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const el = cellEls[y * COLS + x];
+        const old = el.querySelector('.piece');
+        if (old) old.remove();
+        const p = pieces.get(`${x},${y}`);
+        if (p) {
+          const d = document.createElement('div');
+          d.className = `piece ${p}`;
+          el.appendChild(d);
+        }
+      }
+    }
+  }
+
+  function onCellClick(x, y) {
+    const zone = zoneOf(x, y);
+    if (zone === 'wall') {
+      infoEl.textContent = 'Dinding tidak bisa diisi pion.';
+      return;
+    }
+    const key = `${x},${y}`;
+    if (tool === 'erase') {
+      pieces.delete(key);
+    } else {
+      pieces.set(key, tool);
+    }
+    render();
+    showHover(x, y);
+  }
+
+  // ---- Toolbar ----
+  document.querySelectorAll('[data-tool]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tool = btn.dataset.tool;
+      document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    pieces.clear();
+    render();
+    infoEl.textContent = 'Papan direset.';
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
