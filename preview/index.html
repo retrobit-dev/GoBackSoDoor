@@ -62,6 +62,12 @@
     cursor: pointer;
     user-select: none;
   }
+  .cell.threat::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--threat);
+    pointer-events: none;
+  }
   .cell.z-wall, .cell.z-lane { background: var(--white); }
   .cell.z-start { background: var(--start); }
   .cell.z-end { background: var(--end); }
@@ -168,6 +174,7 @@
   const attackers = new Set();
   let selectedId = null;
   let tool = 'attacker';
+  let touchMsg = '';
   const cellEls = [];
 
   function key(x, y) { return x + ',' + y; }
@@ -194,12 +201,45 @@
       inBounds(c.x, c.y) && !guardAt(c.x, c.y) && !attackers.has(key(c.x, c.y)));
   }
 
+  // Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap).
+  function threatCells(g) {
+    const d = g.type === 'h'
+      ? { dx: 0, dy: -1 }
+      : (g.facing === 'left' ? { dx: -1, dy: 0 } : { dx: 1, dy: 0 });
+    const fx = g.x + d.dx;
+    const fy = g.y + d.dy;
+    const sides = d.dx === 0
+      ? [{ x: fx - 1, y: fy }, { x: fx + 1, y: fy }]
+      : [{ x: fx, y: fy - 1 }, { x: fx, y: fy + 1 }];
+    return [{ x: fx, y: fy }, ...sides].filter(c => inBounds(c.x, c.y));
+  }
+
+  // Jika penyerang berada di area sentuh penjaga, peran keduanya ditukar.
+  function resolveTouches() {
+    for (let round = 0; round < 20; round++) {
+      let swapped = false;
+      for (const g of [...guards]) {
+        const hit = threatCells(g).find(c => attackers.has(key(c.x, c.y)));
+        if (!hit) continue;
+        attackers.delete(key(hit.x, hit.y));
+        attackers.add(key(g.x, g.y));
+        guards = guards.filter(o => o !== g);
+        guards.push({ id: g.id, type: g.type, facing: g.facing, x: hit.x, y: hit.y });
+        touchMsg = `Penyerang di (kolom ${hit.x + 1}, baris ${hit.y + 1}) tersentuh ${g.id}. Peran ditukar.`;
+        swapped = true;
+        break;
+      }
+      if (!swapped) return;
+    }
+  }
+
   function arrowOf(g) {
     if (g.type === 'h') return '▲';                 // menghadap garis start
     return g.facing === 'left' ? '◀' : '▶';
   }
 
   function statusText(sel) {
+    if (touchMsg) return touchMsg;
     if (!sel) return 'Klik penjaga (ungu/teal) untuk memilihnya, lalu klik kotak yang disorot untuk memindahkannya.';
     if (sel.type === 'h') {
       return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▲). Gunakan ← → atau klik kotak yang disorot.`;
@@ -223,12 +263,15 @@
   function render() {
     const sel = getGuard(selectedId);
     const valid = sel ? movesFor(sel) : [];
+    const threat = new Set();
+    guards.forEach(g => threatCells(g).forEach(c => threat.add(key(c.x, c.y))));
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
         const el = cellEls[y * COLS + x];
         const zone = zoneOf(x, y);
         let cls = 'cell z-' + zone;
         if (zone === 'field' && (x + y) % 2) cls += ' alt';
+        if (threat.has(key(x, y))) cls += ' threat';
         if (valid.some(c => c.x === x && c.y === y)) cls += ' valid';
         if (sel && sel.x === x && sel.y === y) cls += ' selected';
         el.className = cls;
@@ -260,6 +303,7 @@
   }
 
   function onCell(x, y) {
+    touchMsg = '';
     const g = guardAt(x, y);
     if (g) {
       selectedId = selectedId === g.id ? null : g.id;
@@ -271,6 +315,7 @@
     if (sel && movesFor(sel).some(c => c.x === x && c.y === y)) {
       sel.x = x;
       sel.y = y;
+      resolveTouches();
       render();
       showHover(x, y);
       return;
@@ -284,6 +329,7 @@
     }
     if (tool === 'attacker') attackers.add(key(x, y));
     else attackers.delete(key(x, y));
+    resolveTouches();
     render();
     showHover(x, y);
   }
@@ -296,9 +342,11 @@
     const d = moves[e.key];
     if (!d) return;
     e.preventDefault();
+    touchMsg = '';
 
     if (sel.type === 'v' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
       sel.facing = e.key === 'ArrowLeft' ? 'left' : 'right';
+      resolveTouches();
       render();
       return;
     }
@@ -309,6 +357,7 @@
     if (movesFor(sel).some(c => c.x === tx && c.y === ty)) {
       sel.x = tx;
       sel.y = ty;
+      resolveTouches();
       render();
     }
   });
@@ -324,6 +373,8 @@
     const sel = getGuard(selectedId);
     if (sel && sel.type === 'v') {
       sel.facing = sel.facing === 'left' ? 'right' : 'left';
+      touchMsg = '';
+      resolveTouches();
       render();
     }
   });
