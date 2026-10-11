@@ -6,16 +6,16 @@
 <title>Gobak Sodor — Preview Papan</title>
 <style>
   :root {
-    --cell: 34px;
+    --cell: 30px;
     --wall: #4e342e;
+    --white: #ffffff;
     --field: #c5e1a5;
     --field-alt: #aed581;
     --start: #ffd54f;
     --end: #ff8a65;
-    --block-line: #33691e;
     --attacker: #1e88e5;
-    --defender: #e53935;
-    --hover: rgba(255, 255, 255, 0.55);
+    --guard-h: #6a1b9a;
+    --guard-v: #00838f;
   }
   * { box-sizing: border-box; }
   body {
@@ -30,11 +30,9 @@
     padding: 16px;
   }
   h1 { margin: 4px 0 2px; font-size: 22px; }
-  .subtitle { margin: 0 0 14px; opacity: 0.75; font-size: 14px; }
+  .subtitle { margin: 0 0 14px; opacity: 0.75; font-size: 14px; text-align: center; }
 
-  .toolbar {
-    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px;
-  }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
   .toolbar button {
     border: 2px solid transparent;
     border-radius: 10px;
@@ -45,221 +43,275 @@
     background: #2e3f33;
     color: #eef5ea;
   }
+  .toolbar button:disabled { opacity: 0.4; cursor: default; }
   .toolbar button.active { border-color: #fff; }
   .toolbar button.attacker { background: var(--attacker); }
-  .toolbar button.defender { background: var(--defender); }
   .toolbar button.reset { background: #5d4037; }
 
-  .board-wrap { position: relative; }
   .board {
     display: grid;
-    grid-template-columns: repeat(12, var(--cell));
-    grid-template-rows: repeat(17, var(--cell));
     border: 4px solid var(--wall);
     border-radius: 6px;
     background: var(--wall);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-    position: relative;
   }
   .cell {
     position: relative;
-    background: var(--field);
-    border: 1px solid rgba(51, 105, 30, 0.35);
-    cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    cursor: pointer;
     user-select: none;
   }
-  .cell.wall { background: var(--wall); cursor: not-allowed; border-color: transparent; }
-  .cell.start { background: var(--start); }
-  .cell.end { background: var(--end); }
-  .cell.alt { background: var(--field-alt); }
-  .cell:hover:not(.wall) { box-shadow: inset 0 0 0 3px var(--hover); }
+  .cell.z-wall, .cell.z-lane { background: var(--white); }
+  .cell.z-start { background: var(--start); }
+  .cell.z-end { background: var(--end); }
+  .cell.z-field { background: var(--field); }
+  .cell.z-field.alt { background: var(--field-alt); }
+  .cell:hover { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
+  .cell.valid { box-shadow: inset 0 0 0 4px #ffeb3b; }
+  .cell.selected { outline: 3px solid #ff9800; outline-offset: -3px; }
 
-  /* Garis tebal pemisah antar blok 5x5 dan blok tepi */
-  .cell.bl-r { border-right: 3px solid var(--block-line); }
-  .cell.bl-b { border-bottom: 3px solid var(--block-line); }
-
-  .piece {
-    width: 72%; height: 72%;
-    border-radius: 50%;
+  .piece { pointer-events: none; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .piece.attacker {
+    width: 72%; height: 72%; border-radius: 50%;
+    background: var(--attacker);
     border: 3px solid rgba(255, 255, 255, 0.85);
     box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-    pointer-events: none;
   }
-  .piece.attacker { background: var(--attacker); }
-  .piece.defender { background: var(--defender); }
-
-  .zone-label {
-    position: absolute;
-    font-size: 11px;
-    font-weight: 700;
-    color: #33691e;
-    pointer-events: none;
-    letter-spacing: 1px;
+  .piece.guard {
+    width: 80%; height: 80%; border-radius: 5px;
+    color: #fff; font-size: 13px;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.45);
   }
+  .piece.g-h { background: var(--guard-h); }
+  .piece.g-v { background: var(--guard-v); }
 
   .info {
-    margin-top: 14px;
-    min-height: 44px;
-    font-size: 15px;
-    text-align: center;
-    background: #243428;
-    padding: 10px 16px;
-    border-radius: 10px;
-    max-width: 720px;
+    margin-top: 14px; min-height: 40px; font-size: 15px; text-align: center;
+    background: #243428; padding: 10px 16px; border-radius: 10px; max-width: 760px;
   }
-  .legend {
-    margin-top: 14px;
-    display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;
-    font-size: 13px;
-  }
+  .status { margin-top: 8px; min-height: 22px; font-size: 14px; text-align: center; color: #ffe082; max-width: 760px; }
+  .legend { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 13px; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,0.3); }
   .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .sq { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 </style>
 </head>
 <body>
 
 <h1>Gobak Sodor — Preview Papan</h1>
-<p class="subtitle">Papan 4 kolom × 5 baris blok. Klik kotak untuk menempatkan pion.</p>
+<p class="subtitle">Garis batas berwarna putih. Penjaga baris (ungu) bergerak kiri–kanan dan menghadap garis start. Penjaga kolom (teal) bergerak atas–bawah dan bisa menghadap kiri atau kanan.</p>
 
 <div class="toolbar">
-  <button id="tool-attacker" class="attacker active" data-tool="attacker">Pion Penyerang</button>
-  <button id="tool-defender" class="defender" data-tool="defender">Pion Penjaga</button>
-  <button id="tool-erase" data-tool="erase">Hapus</button>
+  <button class="attacker active" data-tool="attacker">Pion Penyerang</button>
+  <button data-tool="erase">Hapus Pion</button>
+  <button id="btn-face" disabled>Putar Hadap Penjaga Kolom</button>
   <button id="btn-reset" class="reset">Reset Papan</button>
 </div>
 
-<div class="board-wrap">
-  <div class="board" id="board"></div>
-</div>
+<div class="board" id="board"></div>
 
-<div class="info" id="info">Pilih alat lalu klik kotak pada papan.</div>
+<div class="info" id="info">Arahkan kursor ke kotak untuk melihat detailnya.</div>
+<div class="status" id="status"></div>
 
 <div class="legend">
-  <span><span class="swatch" style="background:var(--wall)"></span>Dinding samping (kolom 1 & 4)</span>
-  <span><span class="swatch" style="background:var(--start)"></span>Garis awal (baris 1)</span>
-  <span><span class="swatch" style="background:var(--end)"></span>Garis akhir (baris 5)</span>
+  <span><span class="swatch" style="background:#fff"></span>Garis batas (kolom & baris)</span>
+  <span><span class="swatch" style="background:var(--start)"></span>Garis start</span>
+  <span><span class="swatch" style="background:var(--end)"></span>Garis akhir</span>
   <span><span class="swatch" style="background:var(--field)"></span>Lapangan 5×5</span>
+  <span><span class="sq" style="background:var(--guard-h)"></span>Penjaga baris (kiri–kanan)</span>
+  <span><span class="sq" style="background:var(--guard-v)"></span>Penjaga kolom (atas–bawah)</span>
   <span><span class="dot" style="background:var(--attacker)"></span>Penyerang</span>
-  <span><span class="dot" style="background:var(--defender)"></span>Penjaga</span>
 </div>
 
 <script>
 (function () {
-  // ---- Konfigurasi struktur papan ----
-  // Lebar tiap kolom blok (dalam kotak) dan tinggi tiap baris blok.
-  const COL_WIDTHS = [1, 5, 5, 1];   // kolom 1..4
-  const ROW_HEIGHTS = [1, 5, 5, 5, 1]; // baris 1..5
-
-  const COLS = COL_WIDTHS.reduce((a, b) => a + b, 0); // 12
-  const ROWS = ROW_HEIGHTS.reduce((a, b) => a + b, 0); // 17
-
-  // Pemetaan kotak -> blok (untuk label dan garis pemisah)
-  function blockIndex(sizes, pos) {
-    let acc = 0;
-    for (let i = 0; i < sizes.length; i++) {
-      acc += sizes[i];
-      if (pos < acc) return i;
-    }
-    return sizes.length - 1;
-  }
-  function blockStart(sizes, idx) {
-    let acc = 0;
-    for (let i = 0; i < idx; i++) acc += sizes[i];
-    return acc;
-  }
+  // ---- Struktur papan ----
+  // Kolom (x): 0 = dinding, 1-5 = blok kiri, 6 = batas tengah, 7-11 = blok kanan, 12 = dinding
+  // Baris (y): 0 = garis start, 1/7/13/19 = batas antar baris, 2-6/8-12/14-18 = blok lapangan, 20 = garis akhir
+  const COLS = 13;
+  const ROWS = 21;
+  const LEFT_WALL = 0;
+  const RIGHT_WALL = 12;
+  const CENTER_X = 6;
+  const H_LANES = [1, 7, 13, 19];   // batas antar baris: jalur penjaga baris
+  const START_Y = 0;
+  const END_Y = 20;
 
   function zoneOf(x, y) {
-    const c = blockIndex(COL_WIDTHS, x);
-    const r = blockIndex(ROW_HEIGHTS, y);
-    if (c === 0 || c === 3) return 'wall';
-    if (r === 0) return 'start';
-    if (r === 4) return 'end';
+    if (x === LEFT_WALL || x === RIGHT_WALL) return 'wall';
+    if (H_LANES.includes(y) || x === CENTER_X) return 'lane';
+    if (y === START_Y) return 'start';
+    if (y === END_Y) return 'end';
     return 'field';
   }
+  const ZONE_NAME = {
+    wall: 'Garis batas kolom (putih)',
+    lane: 'Garis batas antar baris/kolom (putih)',
+    start: 'Garis start',
+    end: 'Garis akhir',
+    field: 'Lapangan',
+  };
 
-  // ---- State ----
-  const pieces = new Map(); // "x,y" -> 'attacker' | 'defender'
-  let tool = 'attacker';
-
+  // ---- Elemen ----
   const boardEl = document.getElementById('board');
   const infoEl = document.getElementById('info');
+  const statusEl = document.getElementById('status');
+  const faceBtn = document.getElementById('btn-face');
   boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
   boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell))`;
 
+  // ---- State ----
+  let guards = [];
+  const attackers = new Set();
+  let selectedId = null;
+  let tool = 'attacker';
   const cellEls = [];
 
-  for (let y = 0; y < ROWS; y++) {
-    for (let x = 0; x < COLS; x++) {
-      const el = document.createElement('div');
-      el.className = 'cell';
-      const zone = zoneOf(x, y);
-      if (zone === 'wall') el.classList.add('wall');
-      else if (zone === 'start') el.classList.add('start');
-      else if (zone === 'end') el.classList.add('end');
-      else if ((x + y) % 2) el.classList.add('alt');
+  function key(x, y) { return x + ',' + y; }
+  function guardAt(x, y) { return guards.find(g => g.x === x && g.y === y) || null; }
+  function getGuard(id) { return guards.find(g => g.id === id) || null; }
+  function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
 
-      // Garis pemisah blok: setelah kolom blok terakhir (kecuali kolom 4) dan setelah baris blok
-      const colEnd = blockStart(COL_WIDTHS, blockIndex(COL_WIDTHS, x) + 1) - 1;
-      const rowEnd = blockStart(ROW_HEIGHTS, blockIndex(ROW_HEIGHTS, y) + 1) - 1;
-      if (x === colEnd && x < COLS - 1) el.classList.add('bl-r');
-      if (y === rowEnd && y < ROWS - 1) el.classList.add('bl-b');
+  function presetGuards() {
+    return [
+      { id: 'H1', type: 'h', x: 3, y: 1, facing: 'up' },
+      { id: 'H2', type: 'h', x: 9, y: 7, facing: 'up' },
+      { id: 'H3', type: 'h', x: 3, y: 13, facing: 'up' },
+      { id: 'H4', type: 'h', x: 9, y: 19, facing: 'up' },
+      { id: 'V1', type: 'v', x: CENTER_X, y: 10, facing: 'right' },
+    ];
+  }
 
-      el.dataset.x = x;
-      el.dataset.y = y;
-      el.addEventListener('click', () => onCellClick(x, y));
-      el.addEventListener('mouseenter', () => showHover(x, y));
-      boardEl.appendChild(el);
-      cellEls[y * COLS + x] = el;
+  // Sel. langkah yang diizinkan untuk satu penjaga.
+  function movesFor(g) {
+    const candidates = g.type === 'h'
+      ? [{ x: g.x - 1, y: g.y }, { x: g.x + 1, y: g.y }]
+      : [{ x: g.x, y: g.y - 1 }, { x: g.x, y: g.y + 1 }];
+    return candidates.filter(c =>
+      inBounds(c.x, c.y) && !guardAt(c.x, c.y) && !attackers.has(key(c.x, c.y)));
+  }
+
+  function arrowOf(g) {
+    if (g.type === 'h') return '▲';                 // menghadap garis start
+    return g.facing === 'left' ? '◀' : '▶';
+  }
+
+  function statusText(sel) {
+    if (!sel) return 'Klik penjaga (ungu/teal) untuk memilihnya, lalu klik kotak yang disorot untuk memindahkannya.';
+    if (sel.type === 'h') {
+      return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▲). Gunakan ← → atau klik kotak yang disorot.`;
     }
+    return `Dipilih ${sel.id} (penjaga kolom): bergerak atas–bawah, menghadap ${sel.facing === 'left' ? 'kiri' : 'kanan'}. ↑ ↓ untuk bergerak, ← → untuk memilih hadap.`;
   }
 
-  function blockLabel(x, y) {
-    const c = blockIndex(COL_WIDTHS, x) + 1;
-    const r = blockIndex(ROW_HEIGHTS, y) + 1;
-    return `Blok K${c}-B${r}`;
-  }
-
-  function showHover(x, y) {
-    const zone = zoneOf(x, y);
-    const zoneName = { wall: 'Dinding', start: 'Garis awal', end: 'Garis akhir', field: 'Lapangan' }[zone];
-    const key = `${x},${y}`;
-    const occ = pieces.has(key) ? ` — berisi ${pieces.get(key) === 'attacker' ? 'penyerang' : 'penjaga'}` : '';
-    infoEl.textContent = `Kotak (kolom ${x + 1}, baris ${y + 1}) · ${blockLabel(x, y)} · ${zoneName}${occ}`;
-  }
-
-  function render() {
+  function buildBoard() {
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
-        const el = cellEls[y * COLS + x];
-        const old = el.querySelector('.piece');
-        if (old) old.remove();
-        const p = pieces.get(`${x},${y}`);
-        if (p) {
-          const d = document.createElement('div');
-          d.className = `piece ${p}`;
-          el.appendChild(d);
-        }
+        const el = document.createElement('div');
+        el.className = 'cell';
+        el.addEventListener('click', () => onCell(x, y));
+        el.addEventListener('mouseenter', () => showHover(x, y));
+        boardEl.appendChild(el);
+        cellEls[y * COLS + x] = el;
       }
     }
   }
 
-  function onCellClick(x, y) {
-    const zone = zoneOf(x, y);
-    if (zone === 'wall') {
-      infoEl.textContent = 'Dinding tidak bisa diisi pion.';
+  function render() {
+    const sel = getGuard(selectedId);
+    const valid = sel ? movesFor(sel) : [];
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const el = cellEls[y * COLS + x];
+        const zone = zoneOf(x, y);
+        let cls = 'cell z-' + zone;
+        if (zone === 'field' && (x + y) % 2) cls += ' alt';
+        if (valid.some(c => c.x === x && c.y === y)) cls += ' valid';
+        if (sel && sel.x === x && sel.y === y) cls += ' selected';
+        el.className = cls;
+
+        while (el.lastChild) el.removeChild(el.lastChild);
+
+        if (attackers.has(key(x, y))) {
+          const d = document.createElement('div');
+          d.className = 'piece attacker';
+          el.appendChild(d);
+        }
+        const g = guardAt(x, y);
+        if (g) {
+          const d = document.createElement('div');
+          d.className = 'piece guard ' + (g.type === 'h' ? 'g-h' : 'g-v');
+          d.textContent = arrowOf(g);
+          el.appendChild(d);
+        }
+      }
+    }
+    faceBtn.disabled = !(sel && sel.type === 'v');
+    statusEl.textContent = statusText(sel);
+  }
+
+  function showHover(x, y) {
+    const occ = guardAt(x, y) ? ` — penjaga ${guardAt(x, y).id}`
+      : attackers.has(key(x, y)) ? ' — penyerang' : '';
+    infoEl.textContent = `Kotak (kolom ${x + 1}, baris ${y + 1}) · ${ZONE_NAME[zoneOf(x, y)]}${occ}`;
+  }
+
+  function onCell(x, y) {
+    const g = guardAt(x, y);
+    if (g) {
+      selectedId = selectedId === g.id ? null : g.id;
+      render();
+      showHover(x, y);
       return;
     }
-    const key = `${x},${y}`;
-    if (tool === 'erase') {
-      pieces.delete(key);
-    } else {
-      pieces.set(key, tool);
+    const sel = getGuard(selectedId);
+    if (sel && movesFor(sel).some(c => c.x === x && c.y === y)) {
+      sel.x = x;
+      sel.y = y;
+      render();
+      showHover(x, y);
+      return;
     }
+    if (sel) selectedId = null;
+
+    if (zoneOf(x, y) === 'wall') {
+      infoEl.textContent = 'Garis batas kolom tidak bisa diisi pion.';
+      render();
+      return;
+    }
+    if (tool === 'attacker') attackers.add(key(x, y));
+    else attackers.delete(key(x, y));
     render();
     showHover(x, y);
   }
+
+  // ---- Kontrol keyboard untuk penjaga yang dipilih ----
+  document.addEventListener('keydown', e => {
+    const sel = getGuard(selectedId);
+    if (!sel) return;
+    const moves = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+    const d = moves[e.key];
+    if (!d) return;
+    e.preventDefault();
+
+    if (sel.type === 'v' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      sel.facing = e.key === 'ArrowLeft' ? 'left' : 'right';
+      render();
+      return;
+    }
+    if (sel.type === 'h' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
+
+    const tx = sel.x + d[0];
+    const ty = sel.y + d[1];
+    if (movesFor(sel).some(c => c.x === tx && c.y === ty)) {
+      sel.x = tx;
+      sel.y = ty;
+      render();
+    }
+  });
 
   // ---- Toolbar ----
   document.querySelectorAll('[data-tool]').forEach(btn => {
@@ -268,12 +320,23 @@
       document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
     });
   });
+  faceBtn.addEventListener('click', () => {
+    const sel = getGuard(selectedId);
+    if (sel && sel.type === 'v') {
+      sel.facing = sel.facing === 'left' ? 'right' : 'left';
+      render();
+    }
+  });
   document.getElementById('btn-reset').addEventListener('click', () => {
-    pieces.clear();
+    guards = presetGuards();
+    attackers.clear();
+    selectedId = null;
     render();
     infoEl.textContent = 'Papan direset.';
   });
 
+  buildBoard();
+  guards = presetGuards();
   render();
 })();
 </script>
