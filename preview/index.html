@@ -33,13 +33,13 @@
     padding: 16px;
   }
   h1 { margin: 4px 0 2px; font-size: 22px; }
-  .subtitle { margin: 0 0 12px; opacity: 0.75; font-size: 14px; text-align: center; max-width: 760px; }
+  .subtitle { margin: 0 0 12px; opacity: 0.75; font-size: 14px; text-align: center; max-width: 780px; }
 
   .hud {
-    font-size: 15px; font-weight: 600; background: #243428;
-    padding: 8px 14px; border-radius: 10px; margin-bottom: 10px; text-align: center;
+    font-size: 14px; font-weight: 600; background: #243428;
+    padding: 8px 14px; border-radius: 10px; margin-bottom: 10px; text-align: center; max-width: 900px;
   }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; }
   .toolbar button {
     border: 2px solid transparent; border-radius: 10px; padding: 8px 12px;
     font-size: 14px; font-weight: 600; cursor: pointer; background: #2e3f33; color: #eef5ea;
@@ -48,8 +48,22 @@
   .toolbar button.active { border-color: #fff; }
   .toolbar button.guard { background: var(--guard-h); }
   .toolbar button.attacker { background: var(--attacker); }
-  .toolbar button.roll { background: #f9a825; color: #1b1b1b; }
+  .toolbar button.evade { background: #2e7d32; }
+  .toolbar button.accept { background: #b71c1c; }
   .toolbar button.reset { background: #5d4037; }
+
+  .hand-title { font-size: 13px; margin-bottom: 6px; opacity: 0.85; min-height: 18px; }
+  .hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; max-width: 900px; min-height: 40px; }
+  .card {
+    border: 2px solid #fff3; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 600;
+    background: #37483b; color: #fff; cursor: pointer; min-width: 92px; text-align: center;
+  }
+  .card.move { background: #3949ab; }
+  .card.touch { background: #b71c1c; }
+  .card.evade { background: #2e7d32; }
+  .card.special { background: #6a1b9a; }
+  .card.selected { border-color: #ffeb3b; box-shadow: 0 0 0 2px #ffeb3b; }
+  .card:disabled { opacity: 0.4; cursor: default; }
 
   .board {
     display: grid;
@@ -112,20 +126,24 @@
 <body>
 
 <h1>Gobak Sodor — Preview Papan</h1>
-<p class="subtitle">Pasang 5 penjaga dan 5 penyerang (penyerang di kotak coklat). Lalu bergantian: lempar dadu, pilih satu pemain, gerakkan sesuai dadu. Penyerang yang mencapai finish mendapat 1 poin. Penjaga yang menyentuh penyerang di kotak merah mengakhiri babak dan peran ditukar. Tim pertama dengan 5 poin menang.</p>
+<p class="subtitle">Setiap tim mendapat 3 babak sebagai penyerang. Tim pertama dengan 5 poin menang, atau tim dengan poin tertinggi setelah 6 babak. Gerak memakai kartu arah dan angka 1–3. Penjaga memakai kartu sentuh, penyerang memakai kartu menghindar.</p>
 
-<div class="hud" id="hud">Babak 1</div>
+<div class="hud" id="hud"></div>
 
 <div class="toolbar">
-  <button class="guard active" data-tool="guard">Penjaga</button>
-  <button class="attacker" data-tool="attacker">Penyerang</button>
+  <button class="attacker active" data-tool="attacker">Penyerang</button>
+  <button class="guard" data-tool="guard">Penjaga</button>
   <button data-tool="erase">Hapus</button>
-  <button class="roll" id="btn-roll">Lempar Dadu</button>
-  <button id="btn-end">Selesai Giliran</button>
-  <button id="btn-face">Putar Hadap (1 dadu)</button>
-  <button id="btn-next">Babak Berikutnya (tukar peran)</button>
-  <button id="btn-reset" class="reset">Reset Papan</button>
+  <button id="btn-skip">Lewati Giliran</button>
+  <button id="btn-face">Putar Hadap</button>
+  <button id="btn-evade" class="evade">Hindar (kartu menghindar)</button>
+  <button id="btn-accept" class="accept">Terima Sentuhan</button>
+  <button id="btn-next">Babak Berikutnya</button>
+  <button id="btn-reset" class="reset">Reset Permainan</button>
 </div>
+
+<div class="hand-title" id="hand-title"></div>
+<div class="hand" id="hand"></div>
 
 <div class="board" id="board"></div>
 
@@ -133,8 +151,8 @@
 <div class="status" id="status"></div>
 
 <div class="legend">
-  <span><span class="swatch" style="background:#fff"></span>Garis batas</span>
-  <span><span class="swatch" style="background:var(--red)"></span>Dinding kiri & kanan</span>
+  <span><span class="swatch" style="background:#fff"></span>Garis batas (dilewati penyerang tanpa hitungan)</span>
+  <span><span class="swatch" style="background:var(--red)"></span>Dinding (memantulkan arah)</span>
   <span><span class="swatch" style="background:var(--start)"></span>Garis start (hijau)</span>
   <span><span class="swatch" style="background:var(--below)"></span>Baris coklat (tempat penyerang)</span>
   <span><span class="swatch" style="background:var(--end)"></span>Garis finish (biru)</span>
@@ -146,33 +164,43 @@
 
 <script>
 (function () {
-  // ---- Struktur papan ----
+  // ---- Konstanta papan & aturan ----
   const COLS = 13;
   const ROWS = 22;
-  const LEFT_WALL = 0;
-  const RIGHT_WALL = 12;
   const CENTER_X = 6;
   const H_LANES = [1, 7, 13, 19];
   const END_Y = 0;        // garis finish (atas)
   const START_Y = 20;     // garis start (hijau)
   const BELOW_Y = 21;     // baris coklat, tempat penyerang dipasang
-  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const WIN_SCORE = 5;
+  const TOTAL_ROUNDS = 6; // tiap tim 3 babak sebagai penyerang
+  const HAND_SIZE = 5;
+  const DIR_NAME = { vertical: 'Atas-Bawah', horizontal: 'Kanan-Kiri', cross: 'Silang' };
+  const DIR_LIST = ['vertical', 'horizontal', 'cross'];
+  const SIGNS = {
+    vertical: [[0, 1], [0, -1]],
+    horizontal: [[1, 0], [-1, 0]],
+    cross: [[1, 1], [1, -1], [-1, 1], [-1, -1]],
+  };
 
+  function k(x, y) { return x + ',' + y; }
+  function isWallX(x) { return x === 0 || x === COLS - 1; }
   function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
   function zoneOf(x, y) {
-    if (x === LEFT_WALL || x === RIGHT_WALL) return 'wall';
+    if (isWallX(x)) return 'wall';
     if (y === START_Y) return 'start';
     if (y === BELOW_Y) return 'below';
     if (y === END_Y) return 'end';
     if (H_LANES.includes(y) || x === CENTER_X) return 'lane';
     return 'field';
   }
+  function isLane(x, y) { return zoneOf(x, y) === 'lane'; }
   const ZONE_NAME = {
-    wall: 'Dinding (merah)',
+    wall: 'Dinding (memantulkan arah)',
     start: 'Garis start (hijau)',
     below: 'Baris coklat',
     end: 'Garis finish (biru)',
-    lane: 'Garis batas (putih)',
+    lane: 'Garis batas (dilewati penyerang tanpa hitungan)',
     field: 'Lapangan',
   };
 
@@ -181,9 +209,12 @@
   const infoEl = document.getElementById('info');
   const statusEl = document.getElementById('status');
   const hudEl = document.getElementById('hud');
-  const btnRoll = document.getElementById('btn-roll');
-  const btnEnd = document.getElementById('btn-end');
+  const handEl = document.getElementById('hand');
+  const handTitleEl = document.getElementById('hand-title');
+  const btnSkip = document.getElementById('btn-skip');
   const btnFace = document.getElementById('btn-face');
+  const btnEvade = document.getElementById('btn-evade');
+  const btnAccept = document.getElementById('btn-accept');
   const btnNext = document.getElementById('btn-next');
   const toolBtns = Array.from(document.querySelectorAll('[data-tool]'));
   boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
@@ -191,28 +222,30 @@
 
   // ---- State ----
   const S = {
-    phase: 'setup',      // 'setup' | 'play' | 'over'
-    tool: 'guard',       // alat saat pemasangan
+    phase: 'setup',        // setup | play | over | won | ended
+    tool: 'attacker',
     round: 1,
-    turn: 'attacker',    // 'attacker' | 'guard'
-    roll: null,          // hasil dadu giliran ini
-    pips: 0,             // sisa mata dadu
-    activeId: null,      // satu pemain per giliran
-    guards: [],          // { id, type:'h'|'v', x, y, facing, visited }
-    attackers: [],       // { id, x, y }
-    attTeam: 'A',        // tim yang sedang menjadi penyerang
+    attTeam: 'A',          // tim yang sedang menjadi penyerang
     scores: { A: 0, B: 0 },
     winner: null,
+    turn: 'attacker',      // attacker | guard
+    activeId: null,        // satu pemain per giliran
+    activeCard: null,      // kartu yang dipilih untuk giliran ini
+    pending: null,         // { g, a } saat menunggu jawaban penyerang (menghindar / terima)
+    guards: [],            // { id, type:'h'|'v', x, y, facing, visited, touchedH, moved }
+    attackers: [],         // { id, x, y, moved }
+    decks: { attacker: null, guard: null }, // { deck, hand, discard }
     msg: '',
   };
-  const WIN_SCORE = 5;
-  function teamName(t) { return 'Tim ' + t; }
-  function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
-  function turnTeam() { return S.turn === 'attacker' ? S.attTeam : otherTeam(S.attTeam); }
+  let uidCounter = 0;
   let attCounter = 0;
   let cellEls = [];
 
-  function k(x, y) { return x + ',' + y; }
+  function teamName(t) { return 'Tim ' + t; }
+  function otherTeam(t) { return t === 'A' ? 'B' : 'A'; }
+  function turnTeam() { return S.turn === 'attacker' ? S.attTeam : otherTeam(S.attTeam); }
+  function turnName() { return (S.turn === 'attacker' ? 'Penyerang' : 'Penjaga') + ' (' + teamName(turnTeam()) + ')'; }
+
   function guardAt(x, y) { return S.guards.find(g => g.x === x && g.y === y) || null; }
   function attAt(x, y) { return S.attackers.find(a => a.x === x && a.y === y) || null; }
   function getGuard(id) { return S.guards.find(g => g.id === id) || null; }
@@ -224,12 +257,11 @@
   function hCount() { return S.guards.filter(g => g.type === 'h').length; }
   function vCount() { return S.guards.filter(g => g.type === 'v').length; }
   function isBrown(x, y) { return y === BELOW_Y && zoneOf(x, y) !== 'wall'; }
-  function turnName() { return (S.turn === 'attacker' ? 'Penyerang' : 'Penjaga') + ' (' + teamName(turnTeam()) + ')'; }
 
   // Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap).
   function threatCells(g) {
     const d = g.type === 'h'
-      ? { dx: 0, dy: 1 }                       // penjaga baris selalu menghadap garis start (bawah)
+      ? { dx: 0, dy: 1 }
       : (g.facing === 'left' ? { dx: -1, dy: 0 } : { dx: 1, dy: 0 });
     const fx = g.x + d.dx;
     const fy = g.y + d.dy;
@@ -239,9 +271,245 @@
     return [{ x: fx, y: fy }, ...sides].filter(c => inBounds(c.x, c.y));
   }
 
-  // ---- Pemasangan (fase setup) ----
+  // ---- Kartu & dek ----
+  function newCard(obj) { uidCounter++; return Object.assign({ uid: uidCounter }, obj); }
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+  // 27 kartu gerak + 10 kartu sentuh/menghindar + 10 kartu spesial per tim
+  function buildDeck(side) {
+    const cards = [];
+    for (const dir of DIR_LIST) {
+      for (let n = 1; n <= 3; n++) {
+        for (let c = 0; c < 3; c++) cards.push(newCard({ kind: 'move', dir, n }));
+      }
+    }
+    for (let i = 0; i < 10; i++) cards.push(newCard(side === 'attacker' ? { kind: 'evade' } : { kind: 'touch' }));
+    for (let i = 1; i <= 10; i++) cards.push(newCard({ kind: 'special', id: i, used: false }));
+    return { deck: shuffle(cards), hand: [], discard: [] };
+  }
+  function drawToFull(side) {
+    const P = S.decks[side];
+    while (P.hand.length < HAND_SIZE) {
+      if (P.deck.length === 0) {
+        if (P.discard.length === 0) break;
+        P.deck = shuffle(P.discard);
+        P.discard = [];
+      }
+      P.hand.push(P.deck.pop());
+    }
+  }
+  // Kartu gerak/sentuh/menghindar masuk buangan setelah dipakai; kartu spesial tetap di tangan (sekali per babak).
+  function consumeCard(side, card) {
+    const P = S.decks[side];
+    const i = P.hand.indexOf(card);
+    if (i < 0) return;
+    P.hand.splice(i, 1);
+    P.discard.push(card);
+    drawToFull(side);
+  }
+  function cardLabel(c) {
+    if (c.kind === 'move') return `${DIR_NAME[c.dir]} ${c.n}`;
+    if (c.kind === 'touch') return 'Sentuh';
+    if (c.kind === 'evade') return 'Menghindar';
+    return `Spesial #${c.id}${c.used ? ' (terpakai)' : ''}`;
+  }
+
+  // ---- Babak ----
+  function startRound() {
+    S.phase = 'setup';
+    S.tool = 'attacker';
+    S.turn = 'attacker';
+    S.activeId = null;
+    S.activeCard = null;
+    S.pending = null;
+    S.guards = [];
+    S.attackers = [];
+    attCounter = 0;
+    S.decks.attacker = buildDeck('attacker');
+    S.decks.guard = buildDeck('guard');
+    drawToFull('attacker');
+    drawToFull('guard');
+    S.msg = `Babak ${S.round} dari ${TOTAL_ROUNDS}: ${teamName(S.attTeam)} jadi penyerang. ` + setupText();
+  }
+
+  function newGame() {
+    S.round = 1;
+    S.attTeam = 'A';
+    S.scores = { A: 0, B: 0 };
+    S.winner = null;
+    startRound();
+  }
+
+  function nextRound() {
+    if (S.phase === 'won' || S.phase === 'ended') return newGame();
+    if (S.phase !== 'over') return;
+    if (S.round >= TOTAL_ROUNDS) return endGame();
+    S.round++;
+    S.attTeam = otherTeam(S.attTeam);
+    startRound();
+  }
+
+  function endGame() {
+    S.phase = 'ended';
+    S.activeId = null;
+    S.activeCard = null;
+    const a = S.scores.A, b = S.scores.B;
+    if (a === b) {
+      S.winner = null;
+      S.msg = `Semua babak selesai. Skor seri ${a}–${b}.`;
+    } else {
+      S.winner = a > b ? 'A' : 'B';
+      S.msg = `Semua babak selesai. ${teamName(S.winner)} menang dengan ${S.scores[S.winner]} poin.`;
+    }
+  }
+
+  function gameWon() {
+    S.phase = 'won';
+    S.winner = S.attTeam;
+    S.activeId = null;
+    S.activeCard = null;
+    S.pending = null;
+    S.msg = `${teamName(S.winner)} mencapai ${S.scores[S.winner]} poin dan menang!`;
+  }
+
+  function roundOver(text) {
+    S.phase = 'over';
+    S.pending = null;
+    S.activeId = null;
+    S.activeCard = null;
+    S.msg = text;
+  }
+
+  function endTurn(text) {
+    S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
+    S.activeId = null;
+    S.activeCard = null;
+    S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
+    S.msg = `${text ? text + ' ' : ''}Giliran ${turnName()}.`;
+  }
+
+  // ---- Penjaga: tanda sudah bergerak ----
+  function markGuardMoved(gg) {
+    S.guards.forEach(q => { q.moved = (q === gg); });
+  }
+  function canSelectGuard(g) {
+    if (!g.moved) return true;
+    S.msg = `Penjaga ${g.id} baru bergerak. Gerakkan penjaga lain dulu.`;
+    return false;
+  }
+  // Penyerang: satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua penyerang bergerak.
+  function canSelectAttacker(a) {
+    if (!a.moved) return true;
+    if (S.attackers.every(q => q.moved)) {
+      S.attackers.forEach(q => { q.moved = false; });
+      return true;
+    }
+    S.msg = `${a.id} sudah bergerak. Gerakkan penyerang lain dulu.`;
+    return false;
+  }
+
+  // ---- Simulasi gerak (kartu) ----
+  // Penyerang: tiap kotak non-garis memakai 1 angka; garis batas tidak dihitung; dinding memantulkan arah.
+  function simAttacker(a, sdx, sdy, n) {
+    let x = a.x, y = a.y, dx = sdx, dy = sdy, rem = n;
+    const path = [];
+    let guard = 0;
+    while (rem > 0 && guard++ < 80) {
+      const nx = x + dx, ny = y + dy;
+      if (isWallX(nx)) { dx = -dx; rem--; continue; }
+      if (ny < 0 || ny >= ROWS) { dy = -dy; rem--; continue; }
+      if (occupiedBy(nx, ny, a.id)) return null;
+      x = nx; y = ny;
+      path.push(k(x, y));
+      if (y === END_Y) return { path, end: { x, y }, scored: true };
+      if (!isLane(x, y)) rem--;
+    }
+    if (rem > 0) return null;
+    if (x === a.x && y === a.y) return null;
+    return { path, end: { x, y }, scored: false };
+  }
+
+  // Penjaga: lurus sesuai garisnya, memakai 1 angka per kotak; dinding memantulkan arah.
+  // Tidak boleh melewati kotak yang sudah dilewati, kecuali:
+  // - penjaga baris yang berada di kotak sebelah dinding (kolom 2 atau 12);
+  // - penjaga kolom yang sudah menyentuh garis antar baris (persimpangan) di giliran ini.
+  function canRevisit(g, x, flag) {
+    if (g.type === 'h') return x === 1 || x === COLS - 2;
+    return flag;
+  }
+  function simGuard(g, sdx, sdy, n) {
+    let x = g.x, y = g.y, dx = sdx, dy = sdy, rem = n;
+    const visited = new Set(g.visited || [k(g.x, g.y)]);
+    let flag = !!g.touchedH;
+    const path = [];
+    let guard = 0;
+    while (rem > 0 && guard++ < 80) {
+      const nx = x + dx, ny = y + dy;
+      if (isWallX(nx)) { dx = -dx; rem--; continue; }
+      if (ny < 0 || ny >= ROWS) { dy = -dy; rem--; continue; }
+      if (occupiedBy(nx, ny, g.id)) return null;
+      const kk = k(nx, ny);
+      const seen = visited.has(kk);
+      if (seen && !canRevisit(g, x, flag)) return null;
+      if (!seen) visited.add(kk);
+      x = nx; y = ny;
+      path.push(kk);
+      rem--;
+      if (g.type === 'v' && H_LANES.includes(y)) flag = true;
+    }
+    if (rem > 0) return null;
+    if (x === g.x && y === g.y) return null;
+    return { path, end: { x, y }, flag };
+  }
+
+  function attackerTargets(a, card) {
+    const map = new Map();
+    for (const [dx, dy] of SIGNS[card.dir]) {
+      const r = simAttacker(a, dx, dy, card.n);
+      if (r && !map.has(k(r.end.x, r.end.y))) map.set(k(r.end.x, r.end.y), r);
+    }
+    return map;
+  }
+  function guardTargets(g, card) {
+    const map = new Map();
+    if (card.dir === 'cross') return map;
+    if (g.type === 'h' && card.dir !== 'horizontal') return map;
+    if (g.type === 'v' && card.dir !== 'vertical') return map;
+    for (const [dx, dy] of SIGNS[card.dir]) {
+      const r = simGuard(g, dx, dy, card.n);
+      if (r && !map.has(k(r.end.x, r.end.y))) map.set(k(r.end.x, r.end.y), r);
+    }
+    return map;
+  }
+
+  // ---- Pemasangan ----
+  function setupText() {
+    const a = S.attackers.length, g = S.guards.length;
+    let hint;
+    if (a < 5) hint = `Penyerang pasang dulu: klik kotak coklat (${5 - a} lagi).`;
+    else if (hCount() < 4) hint = `Penjaga pasang: klik garis batas baris (${4 - hCount()} lagi).`;
+    else if (vCount() < 1) hint = 'Penjaga pasang: klik garis batas tengah (kolom).';
+    else hint = 'Pemasangan selesai.';
+    return `Penyerang ${a}/5 · Penjaga ${g}/5 · ${hint}`;
+  }
+
+  function placeAttacker(x, y) {
+    if (S.attackers.length >= 5) return 'Penyerang sudah 5.';
+    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
+    if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
+    attCounter++;
+    S.attackers.push({ id: 'A' + attCounter, x, y, moved: false });
+    return '';
+  }
+
   function placeGuard(x, y) {
-    if (zoneOf(x, y) === 'wall') return 'Dinding tidak bisa diisi.';
+    if (S.attackers.length < 5) return 'Penyerang pasang dulu (5 penyerang).';
+    if (isWallX(x)) return 'Dinding tidak bisa diisi.';
     if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
     if (H_LANES.includes(y)) {
       if (S.guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
@@ -256,195 +524,12 @@
     return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
   }
 
-  function placeAttacker(x, y) {
-    if (S.guards.length < 5) return 'Tempatkan 5 penjaga dulu.';
-    if (S.attackers.length >= 5) return 'Penyerang sudah 5.';
-    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
-    if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
-    attCounter++;
-    S.attackers.push({ id: 'A' + attCounter, x, y, moved: false });
-    return '';
-  }
-
-  function setupText() {
-    const h = hCount(), v = vCount();
-    let hint;
-    if (h < 4) hint = `Klik garis batas baris untuk penjaga baris (${4 - h} lagi).`;
-    else if (v < 1) hint = 'Klik garis batas tengah (kolom) untuk penjaga kolom.';
-    else if (S.attackers.length < 5) hint = `Pilih Penyerang lalu klik kotak coklat (${5 - S.attackers.length} lagi).`;
-    else hint = 'Pemasangan selesai.';
-    return `Penjaga ${S.guards.length}/5 · Penyerang ${S.attackers.length}/5 · ${hint}`;
-  }
-
   function checkSetupDone() {
-    if (S.guards.length === 5 && S.attackers.length === 5) {
+    if (S.attackers.length === 5 && S.guards.length === 5) {
       S.phase = 'play';
       S.turn = 'attacker';
-      S.roll = null;
-      S.pips = 0;
-      S.activeId = null;
-      S.msg = 'Pemasangan selesai. Giliran Penyerang: lempar dadu.';
+      S.msg = `Pemasangan selesai. Giliran ${turnName()}: pilih kartu gerak, pilih penyerang, lalu klik kotak tujuan.`;
     }
-  }
-
-  // ---- Permainan (fase play) ----
-  // Langkah penyerang: setiap kotak memakai 1 mata dadu, tanpa melewati kotak yang sama dalam satu jalur.
-  // Bergerak mundur (ke bawah) harus memakai semua mata dadu.
-  function attackerReach(a) {
-    const result = new Map();
-    const p = S.pips;
-    const visited = new Set([k(a.x, a.y)]);
-    const startY = a.y;
-    function record(nx, ny, L) {
-      if (ny > startY && L !== p) return;   // mundur: harus memakai semua mata dadu
-      const kk = k(nx, ny);
-      if (!result.has(kk) || result.get(kk) > L) result.set(kk, L);
-    }
-    function dfs(x, y, steps) {
-      if (steps >= p) return;
-      for (const d of DIRS) {
-        const nx = x + d[0], ny = y + d[1];
-        if (!inBounds(nx, ny)) continue;
-        const kk = k(nx, ny);
-        if (visited.has(kk)) continue;
-        if (zoneOf(nx, ny) === 'wall') continue;
-        if (occupiedBy(nx, ny, a.id)) continue;
-        visited.add(kk);
-        record(nx, ny, steps + 1);
-        dfs(nx, ny, steps + 1);
-        visited.delete(kk);
-      }
-    }
-    dfs(a.x, a.y, 0);
-    return result;
-  }
-
-  // Langkah penjaga: lurus sesuai garisnya, 1 mata dadu per kotak.
-  // Kotak yang sudah dilewati dalam satu giliran tidak boleh dilewati lagi, kecuali:
-  // - penjaga baris (antar baris) yang sedang berada di kotak sebelah dinding (kolom 2 atau 12);
-  // - penjaga kolom (antar kolom) yang sudah menyentuh garis antar baris (persimpangan) di giliran ini.
-  function guardReach(g) {
-    const result = new Map();
-    const dirs = g.type === 'h' ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
-    const p = S.pips;
-    const startVisited = g.visited || new Set([k(g.x, g.y)]);
-    function canRevisit(x, flag) {
-      if (g.type === 'h') return x === 1 || x === COLS - 2;
-      return flag;
-    }
-    function dfs(x, y, steps, path, visited, flag) {
-      if (steps >= p) return;
-      for (const d of dirs) {
-        const nx = x + d[0], ny = y + d[1];
-        if (!inBounds(nx, ny) || zoneOf(nx, ny) === 'wall' || occupiedBy(nx, ny, g.id)) continue;
-        const kk = k(nx, ny);
-        const seen = visited.has(kk);
-        if (seen && !canRevisit(x, flag)) continue;
-        const nflag = flag || (g.type === 'v' && H_LANES.includes(ny));
-        const newPath = path.concat([kk]);
-        const prev = result.get(kk);
-        if (!prev || prev.steps > steps + 1) result.set(kk, { steps: steps + 1, path: newPath, flag: nflag });
-        if (!seen) visited.add(kk);
-        dfs(nx, ny, steps + 1, newPath, visited, nflag);
-        if (!seen) visited.delete(kk);
-      }
-    }
-    dfs(g.x, g.y, 0, [], new Set(startVisited), !!g.touchedH);
-    return result;
-  }
-
-  // Penjaga yang baru bergerak tidak boleh dipilih lagi sebelum penjaga lain bergerak.
-  function markGuardMoved(gg) {
-    S.guards.forEach(q => { q.moved = (q === gg); });
-  }
-  function canSelectGuard(g) {
-    if (!g.moved) return true;
-    S.msg = `Penjaga ${g.id} baru bergerak. Gerakkan penjaga lain dulu.`;
-    return false;
-  }
-
-  // Penyerang: satu pemain yang sudah bergerak tidak boleh dipilih lagi sebelum semua penyerang bergerak.
-  function teamPieces() { return S.turn === 'attacker' ? S.attackers : S.guards; }
-  function canSelect(p) {
-    if (!p.moved) return true;
-    const team = teamPieces();
-    if (team.every(q => q.moved)) {
-      team.forEach(q => { q.moved = false; });
-      return true;
-    }
-    S.msg = `${p.id} sudah bergerak. Gerakkan pemain lain dulu.`;
-    return false;
-  }
-
-  function rollDice() {
-    if (S.phase !== 'play' || S.roll !== null) return;
-    S.roll = 1 + Math.floor(Math.random() * 6);
-    S.pips = S.roll;
-    S.activeId = null;
-    S.msg = `Dadu ${S.roll}. Giliran ${turnName()}: pilih satu ${S.turn === 'attacker' ? 'penyerang' : 'penjaga'}.`;
-  }
-
-  function endTurn(prefix) {
-    S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
-    S.roll = null;
-    S.pips = 0;
-    S.activeId = null;
-    S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
-    S.msg = `${prefix ? prefix + ' ' : ''}Giliran ${turnName()}: lempar dadu.`;
-  }
-
-  function afterAction(text) {
-    S.msg = text;
-    if (S.pips <= 0) endTurn(text);
-  }
-
-  function roundOver(g, a) {
-    S.phase = 'over';
-    S.roll = null;
-    S.pips = 0;
-    S.activeId = null;
-    S.msg = `Penjaga ${g.id} (${teamName(otherTeam(S.attTeam))}) menyentuh penyerang ${a.id} di kotak merah. Babak selesai.`;
-  }
-
-  function nextRound() {
-    if (S.phase !== 'over') return;
-    S.attTeam = otherTeam(S.attTeam);
-    S.round++;
-    S.guards = [];
-    S.attackers = [];
-    attCounter = 0;
-    S.phase = 'setup';
-    S.tool = 'guard';
-    S.turn = 'attacker';
-    S.roll = null;
-    S.pips = 0;
-    S.activeId = null;
-    S.msg = `Babak ${S.round}: peran ditukar. ${teamName(S.attTeam)} sekarang penyerang. Pasang 5 penjaga dulu, lalu 5 penyerang di kotak coklat.`;
-  }
-
-  function gameWon() {
-    S.phase = 'won';
-    S.winner = S.attTeam;
-    S.roll = null;
-    S.pips = 0;
-    S.activeId = null;
-    S.msg = `${teamName(S.winner)} menang dengan ${S.scores[S.winner]} poin! Permainan berakhir.`;
-  }
-
-  function newGame() {
-    S.phase = 'setup'; S.tool = 'guard'; S.round = 1; S.turn = 'attacker'; S.attTeam = 'A';
-    S.roll = null; S.pips = 0; S.activeId = null; S.guards = []; S.attackers = [];
-    S.scores = { A: 0, B: 0 }; S.winner = null;
-    attCounter = 0;
-    S.msg = 'Permainan baru. ' + setupText();
-  }
-
-  // ---- Interaksi kotak ----
-  function onCell(x, y) {
-    if (S.phase === 'setup') return onSetupCell(x, y);
-    if (S.phase === 'over') { S.msg = 'Babak selesai. Tekan "Babak Berikutnya" untuk melanjutkan.'; return render(); }
-    if (S.phase === 'won') { S.msg = 'Permainan sudah berakhir. Tekan "Main Lagi" untuk memulai ulang.'; return render(); }
-    return onPlayCell(x, y);
   }
 
   function onSetupCell(x, y) {
@@ -457,106 +542,149 @@
       if (!S.msg) S.msg = setupText();
     }
     checkSetupDone();
-    render();
   }
 
-  function onPlayCell(x, y) {
-    if (S.roll === null) { S.msg = 'Lempar dadu dulu.'; return render(); }
-    const g = guardAt(x, y);
-    const a = attAt(x, y);
-
-    if (S.turn === 'attacker') {
-      if (a) {
-        if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu penyerang per giliran.';
-        else if (S.activeId === a.id) S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`;
-        else if (canSelect(a)) { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`; }
-        return render();
-      }
-      const act = getAtt(S.activeId);
-      if (!act) { S.msg = 'Pilih penyerang dulu.'; return render(); }
-      const reach = attackerReach(act);
-      if (!reach.has(k(x, y))) { S.msg = 'Kotak itu tidak bisa dicapai dengan sisa dadu.'; return render(); }
-      const L = reach.get(k(x, y));
-      act.x = x;
-      act.y = y;
-      act.moved = true;
-      S.pips -= L;
-      if (y === END_Y) {
-        S.attackers = S.attackers.filter(q => q !== act);
-        S.scores[S.attTeam] += 1;
-        S.activeId = null;
-        S.msg = `Penyerang ${act.id} mencapai finish: +1 poin untuk ${teamName(S.attTeam)}.`;
-        if (S.scores[S.attTeam] >= WIN_SCORE) { gameWon(); return render(); }
-        if (S.attackers.length === 0) {
-          S.phase = 'over'; S.roll = null; S.pips = 0;
-          S.msg = `Semua penyerang sudah mencapai finish. Babak selesai.`;
-          return render();
-        }
-        if (S.pips <= 0) endTurn(S.msg);
-        return render();
-      }
-      afterAction(`Penyerang ${act.id} bergerak ${L} kotak.`);
-      return render();
+  // ---- Interaksi permainan ----
+  function finishAttackerMove(act, res, card) {
+    act.x = res.end.x;
+    act.y = res.end.y;
+    act.moved = true;
+    consumeCard('attacker', card);
+    if (res.scored) {
+      S.attackers = S.attackers.filter(q => q !== act);
+      S.scores[S.attTeam] += 1;
+      if (S.scores[S.attTeam] >= WIN_SCORE) return gameWon();
+      if (S.attackers.length === 0) return roundOver('Semua penyerang sudah mencapai finish. Babak selesai.');
+      return endTurn(`${act.id} mencapai finish: +1 poin untuk ${teamName(S.attTeam)}.`);
     }
+    return endTurn(`Penyerang ${act.id} bergerak ${cardLabel(card)}.`);
+  }
 
-    // Giliran penjaga
+  function declareTouch(g, a, card) {
+    consumeCard('guard', card);
+    markGuardMoved(g);
+    const hasEvade = S.decks.attacker.hand.some(c => c.kind === 'evade');
+    if (!hasEvade) {
+      return roundOver(`Penjaga ${g.id} (${teamName(otherTeam(S.attTeam))}) menyentuh penyerang ${a.id}. Babak selesai.`);
+    }
+    S.pending = { g, a };
+    S.msg = `Penjaga ${g.id} menyentuh ${a.id}. Penyerang: pakai Hindar (kartu menghindar) atau Terima Sentuhan.`;
+  }
+
+  function evade() {
+    if (!S.pending) return;
+    const card = S.decks.attacker.hand.find(c => c.kind === 'evade');
+    if (!card) { S.msg = 'Tidak punya kartu menghindar.'; return; }
+    consumeCard('attacker', card);
+    S.pending = null;
+    endTurn('Sentuhan dihindari.');
+  }
+
+  function acceptTouch() {
+    if (!S.pending) return;
+    const { g, a } = S.pending;
+    roundOver(`Penjaga ${g.id} menyentuh ${a.id}. Babak selesai.`);
+  }
+
+  function useSpecial(card) {
+    if (card.used) { S.msg = 'Kartu spesial ini sudah dipakai di babak ini.'; return; }
+    card.used = true;
+    S.activeCard = null;
+    S.msg = `Kartu spesial #${card.id} dipakai. (Efek belum ditentukan.)`;
+  }
+
+  function selectCard(card) {
+    if (S.phase !== 'play' && S.phase !== 'over') return;
+    if (S.pending) {
+      if (card.kind === 'evade') return evade();
+      S.msg = 'Pilih Hindar atau Terima Sentuhan dulu.';
+      return;
+    }
+    if (S.phase !== 'play') return;
+    if (card.kind === 'special') return useSpecial(card);
+    if (S.turn === 'attacker' && card.kind !== 'move') { S.msg = 'Penyerang hanya bisa memakai kartu gerak (atau menghindar saat diserang).'; return; }
+    if (S.turn === 'guard' && card.kind === 'evade') { S.msg = 'Kartu menghindar hanya dipakai penyerang saat diserang.'; return; }
+    S.activeCard = S.activeCard === card ? null : card;
+    S.msg = S.activeCard ? `Kartu ${cardLabel(card)} dipilih. Pilih pemain, lalu klik tujuan.` : 'Kartu dibatalkan.';
+  }
+
+  function attackerClick(x, y) {
+    const a = attAt(x, y);
+    if (a) {
+      if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu pemain per giliran.';
+      else if (S.activeId === a.id) S.msg = `Penyerang ${a.id} dipilih.`;
+      else if (canSelectAttacker(a)) { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Pilih kartu gerak, lalu klik tujuan.`; }
+      return;
+    }
+    const act = getAtt(S.activeId);
+    if (!act) { S.msg = 'Pilih penyerang dulu.'; return; }
+    if (!S.activeCard) { S.msg = 'Pilih kartu gerak dulu.'; return; }
+    const res = attackerTargets(act, S.activeCard).get(k(x, y));
+    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu ini.'; return; }
+    finishAttackerMove(act, res, S.activeCard);
+  }
+
+  function guardClick(x, y) {
+    const g = guardAt(x, y), a = attAt(x, y);
     if (g) {
-      if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu penjaga per giliran.';
-      else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
+      if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu pemain per giliran.';
+      else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih.`;
       else if (canSelectGuard(g)) {
         S.activeId = g.id;
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
-        S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
+        S.msg = `Penjaga ${g.id} dipilih. Pilih kartu, lalu klik tujuan.`;
       }
-      return render();
+      return;
     }
     const gg = getGuard(S.activeId);
-    if (!gg) { S.msg = 'Pilih penjaga dulu.'; return render(); }
-    if (a) {
-      if (!threatCells(gg).some(c => c.x === a.x && c.y === a.y)) {
-        S.msg = 'Penyerang itu tidak ada di kotak merah penjaga.';
-        return render();
-      }
-      if (S.pips !== 1) {
-        S.msg = S.pips < 1
-          ? 'Tidak ada sisa dadu untuk menyentuh.'
-          : `Menyentuh hanya bisa dengan dadu terakhir (sisa ${S.pips}). Gerakkan dulu.`;
-        return render();
-      }
-      markGuardMoved(gg);
-      S.pips -= 1;
-      roundOver(gg, a);
-      return render();
+    if (!gg) { S.msg = 'Pilih penjaga dulu.'; return; }
+    if (!S.activeCard) { S.msg = 'Pilih kartu dulu.'; return; }
+    const card = S.activeCard;
+    if (card.kind === 'touch') {
+      if (!a) { S.msg = 'Pilih penyerang di area merah untuk disentuh.'; return; }
+      if (!threatCells(gg).some(c => c.x === a.x && c.y === a.y)) { S.msg = 'Penyerang itu tidak ada di area merah penjaga.'; return; }
+      return declareTouch(gg, a, card);
     }
-    const reach = guardReach(gg);
-    if (!reach.has(k(x, y))) { S.msg = 'Kotak itu tidak bisa dicapai penjaga ini.'; return render(); }
-    const r = reach.get(k(x, y));
-    if (!gg.visited) gg.visited = new Set([k(gg.x, gg.y)]);
-    r.path.forEach(kk => gg.visited.add(kk));
-    gg.touchedH = r.flag;
-    gg.x = x;
-    gg.y = y;
+    if (a) { S.msg = 'Kotak itu ditempati penyerang.'; return; }
+    const res = guardTargets(gg, card).get(k(x, y));
+    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu ini.'; return; }
     markGuardMoved(gg);
-    S.pips -= r.steps;
-    afterAction(`Penjaga ${gg.id} bergerak ${r.steps} kotak.`);
+    if (!gg.visited) gg.visited = new Set([k(gg.x, gg.y)]);
+    res.path.forEach(kk => gg.visited.add(kk));
+    gg.touchedH = res.flag;
+    gg.x = res.end.x;
+    gg.y = res.end.y;
+    consumeCard('guard', card);
+    endTurn(`Penjaga ${gg.id} bergerak ${cardLabel(card)}.`);
+  }
+
+  function onPlayCell(x, y) {
+    if (S.pending) { S.msg = 'Pilih Hindar atau Terima Sentuhan dulu.'; return; }
+    if (S.turn === 'attacker') return attackerClick(x, y);
+    return guardClick(x, y);
+  }
+
+  function onCell(x, y) {
+    if (S.phase === 'setup') onSetupCell(x, y);
+    else if (S.phase === 'play') onPlayCell(x, y);
+    else S.msg = 'Babak selesai. Tekan tombol berikutnya.';
     render();
   }
 
   function turnFace() {
-    if (S.phase !== 'play' || S.turn !== 'guard') return;
+    if (S.phase !== 'play' || S.pending || S.turn !== 'guard') return;
     const gg = getGuard(S.activeId);
     if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
-    if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk berganti hadap.'; return render(); }
+    if (S.activeCard) { S.msg = 'Batalkan kartu dulu.'; return render(); }
     gg.facing = gg.facing === 'left' ? 'right' : 'left';
     markGuardMoved(gg);
-    S.pips -= 1;
-    afterAction(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
+    endTurn(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
     render();
   }
 
-  function endTurnClick() {
-    if (S.phase !== 'play' || S.roll === null) return;
-    endTurn('Giliran diakhiri.');
+  function skipTurn() {
+    if (S.phase !== 'play' || S.pending) return;
+    endTurn('Giliran dilewati.');
     render();
   }
 
@@ -574,32 +702,48 @@
     }
   }
 
-  function activeReach() {
-    if (S.phase !== 'play' || S.roll === null) return new Map();
+  function activeTargets() {
+    const out = { moves: new Map(), touches: new Set() };
+    if (S.phase !== 'play' || S.pending || !S.activeCard) return out;
     if (S.turn === 'attacker') {
       const a = getAtt(S.activeId);
-      return a ? attackerReach(a) : new Map();
+      if (a && S.activeCard.kind === 'move') out.moves = attackerTargets(a, S.activeCard);
+    } else {
+      const g = getGuard(S.activeId);
+      if (g && S.activeCard.kind === 'move') out.moves = guardTargets(g, S.activeCard);
+      if (g && S.activeCard.kind === 'touch') {
+        threatCells(g).forEach(c => { if (attAt(c.x, c.y)) out.touches.add(k(c.x, c.y)); });
+      }
     }
-    const g = getGuard(S.activeId);
-    return g ? guardReach(g) : new Map();
+    return out;
   }
 
-  function touchTargets() {
-    if (S.phase !== 'play' || S.turn !== 'guard' || S.roll === null) return new Set();
-    const g = getGuard(S.activeId);
-    if (!g || S.pips !== 1) return new Set();
-    return new Set(threatCells(g).filter(c => attAt(c.x, c.y)).map(c => k(c.x, c.y)));
+  function renderHand() {
+    while (handEl.lastChild) handEl.removeChild(handEl.lastChild);
+    if (S.phase !== 'play' && S.phase !== 'over') {
+      handTitleEl.textContent = S.phase === 'setup' ? 'Kartu dibagikan saat pemasangan selesai.' : '';
+      return;
+    }
+    const side = S.pending ? 'attacker' : S.turn;
+    const P = S.decks[side];
+    handTitleEl.textContent = `Kartu ${side === 'attacker' ? 'Penyerang' : 'Penjaga'} (${teamName(side === 'attacker' ? S.attTeam : otherTeam(S.attTeam))}) · dek ${P.deck.length} · buangan ${P.discard.length}`;
+    P.hand.forEach(card => {
+      const b = document.createElement('button');
+      b.className = 'card ' + card.kind + (S.activeCard === card ? ' selected' : '');
+      b.textContent = cardLabel(card);
+      b.disabled = S.phase === 'over' || (card.kind === 'special' && card.used) || (side !== S.turn && !S.pending);
+      b.addEventListener('click', () => { selectCard(card); render(); });
+      handEl.appendChild(b);
+    });
   }
 
   function render() {
     const threat = new Set();
     S.guards.forEach(g => threatCells(g).forEach(c => threat.add(k(c.x, c.y))));
-    const reach = activeReach();
-    const touch = touchTargets();
-    const activeKey = (() => {
-      const p = S.turn === 'attacker' ? getAtt(S.activeId) : getGuard(S.activeId);
-      return p ? k(p.x, p.y) : null;
-    })();
+    const targets = activeTargets();
+    const pendingKey = S.pending ? k(S.pending.a.x, S.pending.a.y) : null;
+    const activePiece = S.turn === 'attacker' ? getAtt(S.activeId) : getGuard(S.activeId);
+    const activeKey = activePiece ? k(activePiece.x, activePiece.y) : null;
 
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
@@ -609,14 +753,13 @@
         let cls = 'cell z-' + zone;
         if (zone === 'field' && (x + y) % 2) cls += ' alt';
         if (threat.has(kk)) cls += ' threat';
-        if (reach.has(kk)) cls += ' valid';
-        if (touch.has(kk)) cls += ' touch';
+        if (targets.moves.has(kk)) cls += ' valid';
+        if (targets.touches.has(kk) || kk === pendingKey) cls += ' touch';
         if (activeKey === kk) cls += ' selected';
         el.className = cls;
 
         while (el.lastChild) el.removeChild(el.lastChild);
-        const a = attAt(x, y);
-        if (a) {
+        if (attAt(x, y)) {
           const d = document.createElement('div');
           d.className = 'piece attacker';
           el.appendChild(d);
@@ -631,28 +774,33 @@
       }
     }
 
-    const phaseName = S.phase === 'setup' ? 'Pemasangan' : S.phase === 'play' ? 'Permainan' : S.phase === 'over' ? 'Babak selesai' : 'Permainan selesai';
-    const scoreText = `Skor: ${teamName('A')} ${S.scores.A} – ${teamName('B')} ${S.scores.B}`;
-    const rollText = S.roll === null ? '-' : S.roll;
-    hudEl.textContent = S.phase === 'play'
-      ? `Babak ${S.round} · ${phaseName} · Giliran: ${turnName()} · Dadu: ${rollText} · Sisa: ${S.pips} · ${scoreText}`
-      : `Babak ${S.round} · ${phaseName} · ${scoreText}`;
-    statusEl.textContent = S.msg || (S.phase === 'setup' ? setupText() : '');
+    const phaseName = { setup: 'Pemasangan', play: 'Permainan', over: 'Babak selesai', won: 'Permainan selesai', ended: 'Permainan selesai' }[S.phase];
+    const scoreText = `Skor ${teamName('A')} ${S.scores.A} – ${teamName('B')} ${S.scores.B}`;
+    const turnText = S.phase === 'play' ? ` · Giliran: ${turnName()}` : '';
+    hudEl.textContent = `Babak ${S.round}/${TOTAL_ROUNDS} · ${phaseName} · Penyerang: ${teamName(S.attTeam)}${turnText} · ${scoreText}`;
+    statusEl.textContent = S.msg;
+    renderHand();
     updateButtons();
   }
 
   function updateButtons() {
     const setup = S.phase === 'setup';
+    const play = S.phase === 'play';
     toolBtns.forEach(b => {
       b.disabled = !setup;
       b.classList.toggle('active', setup && b.dataset.tool === S.tool);
     });
-    btnRoll.disabled = !(S.phase === 'play' && S.roll === null);
-    btnEnd.disabled = !(S.phase === 'play' && S.roll !== null);
+    btnSkip.disabled = !(play && !S.pending);
     const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
-    btnFace.disabled = !(S.phase === 'play' && S.turn === 'guard' && gg && gg.type === 'v' && S.pips >= 1);
-    btnNext.disabled = !(S.phase === 'over' || S.phase === 'won');
-    btnNext.textContent = S.phase === 'won' ? 'Main Lagi' : 'Babak Berikutnya (tukar peran)';
+    btnFace.disabled = !(play && !S.pending && S.turn === 'guard' && gg && gg.type === 'v' && !S.activeCard);
+    const attackerHasEvade = S.decks.attacker && S.decks.attacker.hand.some(c => c.kind === 'evade');
+    btnEvade.disabled = !(S.pending && attackerHasEvade);
+    btnAccept.disabled = !S.pending;
+    const finished = S.phase === 'over' || S.phase === 'won' || S.phase === 'ended';
+    btnNext.disabled = !finished;
+    if (S.phase === 'won' || S.phase === 'ended') btnNext.textContent = 'Main Lagi';
+    else if (S.phase === 'over' && S.round >= TOTAL_ROUNDS) btnNext.textContent = 'Lihat Hasil Akhir';
+    else btnNext.textContent = 'Babak Berikutnya (tukar peran)';
   }
 
   function showHover(x, y) {
@@ -665,22 +813,19 @@
   toolBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       if (S.phase !== 'setup') return;
-      if (btn.dataset.tool === 'erase') S.tool = 'erase';
-      else S.tool = btn.dataset.tool;
+      S.tool = btn.dataset.tool;
       render();
     });
   });
-  btnRoll.addEventListener('click', () => { rollDice(); render(); });
-  btnEnd.addEventListener('click', endTurnClick);
+  btnSkip.addEventListener('click', skipTurn);
   btnFace.addEventListener('click', turnFace);
-  btnNext.addEventListener('click', () => { if (S.phase === 'won') newGame(); else nextRound(); render(); });
-  document.getElementById('btn-reset').addEventListener('click', () => {
-    newGame();
-    render();
-  });
+  btnEvade.addEventListener('click', () => { evade(); render(); });
+  btnAccept.addEventListener('click', () => { acceptTouch(); render(); });
+  btnNext.addEventListener('click', () => { nextRound(); render(); });
+  document.getElementById('btn-reset').addEventListener('click', () => { newGame(); render(); });
 
   buildBoard();
-  S.msg = setupText();
+  newGame();
   render();
 })();
 </script>
