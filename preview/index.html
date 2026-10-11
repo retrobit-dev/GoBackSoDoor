@@ -8,6 +8,7 @@
   :root {
     --cell: 30px;
     --wall: #4e342e;
+    --red: #e53935;
     --white: #ffffff;
     --field: #c5e1a5;
     --field-alt: #aed581;
@@ -32,23 +33,22 @@
     padding: 16px;
   }
   h1 { margin: 4px 0 2px; font-size: 22px; }
-  .subtitle { margin: 0 0 14px; opacity: 0.75; font-size: 14px; text-align: center; }
+  .subtitle { margin: 0 0 12px; opacity: 0.75; font-size: 14px; text-align: center; max-width: 760px; }
 
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .hud {
+    font-size: 15px; font-weight: 600; background: #243428;
+    padding: 8px 14px; border-radius: 10px; margin-bottom: 10px; text-align: center;
+  }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
   .toolbar button {
-    border: 2px solid transparent;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    background: #2e3f33;
-    color: #eef5ea;
+    border: 2px solid transparent; border-radius: 10px; padding: 8px 12px;
+    font-size: 14px; font-weight: 600; cursor: pointer; background: #2e3f33; color: #eef5ea;
   }
   .toolbar button:disabled { opacity: 0.4; cursor: default; }
   .toolbar button.active { border-color: #fff; }
-  .toolbar button.attacker { background: var(--attacker); }
   .toolbar button.guard { background: var(--guard-h); }
+  .toolbar button.attacker { background: var(--attacker); }
+  .toolbar button.roll { background: #f9a825; color: #1b1b1b; }
   .toolbar button.reset { background: #5d4037; }
 
   .board {
@@ -66,13 +66,11 @@
     user-select: none;
   }
   .cell.threat::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: var(--threat);
-    pointer-events: none;
+    content: ''; position: absolute; inset: 0;
+    background: var(--threat); pointer-events: none;
   }
   .cell.z-lane { background: var(--white); }
-  .cell.z-wall { background: #e53935; }
+  .cell.z-wall { background: var(--red); }
   .cell.z-start { background: var(--start); }
   .cell.z-below { background: var(--below); }
   .cell.z-end { background: var(--end); }
@@ -80,6 +78,7 @@
   .cell.z-field.alt { background: var(--field-alt); }
   .cell:hover { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
   .cell.valid { box-shadow: inset 0 0 0 4px #ffeb3b; }
+  .cell.touch { box-shadow: inset 0 0 0 4px #ff1744; }
   .cell.selected { outline: 3px solid #ff9800; outline-offset: -3px; }
 
   .piece { position: relative; z-index: 1; pointer-events: none; display: flex; align-items: center; justify-content: center; font-weight: 700; }
@@ -99,11 +98,11 @@
   .piece.g-v { background: var(--guard-v); }
 
   .info {
-    margin-top: 14px; min-height: 40px; font-size: 15px; text-align: center;
+    margin-top: 12px; min-height: 40px; font-size: 15px; text-align: center;
     background: #243428; padding: 10px 16px; border-radius: 10px; max-width: 760px;
   }
   .status { margin-top: 8px; min-height: 22px; font-size: 14px; text-align: center; color: #ffe082; max-width: 760px; }
-  .legend { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 13px; }
+  .legend { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; font-size: 13px; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,0.3); }
   .dot { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
@@ -113,13 +112,18 @@
 <body>
 
 <h1>Gobak Sodor — Preview Papan</h1>
-<p class="subtitle">Garis batas berwarna putih. Penjaga baris (ungu) bergerak kiri–kanan dan menghadap garis start. Penjaga kolom (teal) bergerak atas–bawah dan bisa menghadap kiri atau kanan.</p>
+<p class="subtitle">Pasang 5 penjaga dan 5 penyerang (penyerang di kotak coklat). Lalu bergantian: lempar dadu, pilih satu pemain, gerakkan sesuai dadu. Penjaga yang menyentuh penyerang di kotak merah mengakhiri babak dan peran ditukar.</p>
+
+<div class="hud" id="hud">Babak 1</div>
 
 <div class="toolbar">
   <button class="guard active" data-tool="guard">Penjaga</button>
   <button class="attacker" data-tool="attacker">Penyerang</button>
   <button data-tool="erase">Hapus</button>
-  <button id="btn-face" disabled>Putar Hadap Penjaga Kolom</button>
+  <button class="roll" id="btn-roll">Lempar Dadu</button>
+  <button id="btn-end">Selesai Giliran</button>
+  <button id="btn-face">Putar Hadap (1 dadu)</button>
+  <button id="btn-next">Babak Berikutnya (tukar peran)</button>
   <button id="btn-reset" class="reset">Reset Papan</button>
 </div>
 
@@ -129,43 +133,46 @@
 <div class="status" id="status"></div>
 
 <div class="legend">
-  <span><span class="swatch" style="background:#fff"></span>Garis batas (kolom & baris)</span>
-  <span><span class="swatch" style="background:#e53935"></span>Dinding kiri & kanan</span>
-  <span><span class="swatch" style="background:var(--below)"></span>Baris di bawah start (coklat)</span>
+  <span><span class="swatch" style="background:#fff"></span>Garis batas</span>
+  <span><span class="swatch" style="background:var(--red)"></span>Dinding kiri & kanan</span>
   <span><span class="swatch" style="background:var(--start)"></span>Garis start (hijau)</span>
-  <span><span class="swatch" style="background:var(--end)"></span>Garis akhir</span>
-  <span><span class="swatch" style="background:var(--field)"></span>Lapangan 5×5</span>
-  <span><span class="sq" style="background:var(--guard-h)"></span>Penjaga baris (kiri–kanan)</span>
-  <span><span class="sq" style="background:var(--guard-v)"></span>Penjaga kolom (atas–bawah)</span>
+  <span><span class="swatch" style="background:var(--below)"></span>Baris coklat (tempat penyerang)</span>
+  <span><span class="swatch" style="background:var(--end)"></span>Garis finish (biru)</span>
+  <span><span class="swatch" style="background:var(--threat)"></span>Area merah penjaga</span>
+  <span><span class="sq" style="background:var(--guard-h)"></span>Penjaga baris</span>
+  <span><span class="sq" style="background:var(--guard-v)"></span>Penjaga kolom</span>
   <span><span class="dot" style="background:var(--attacker)"></span>Penyerang</span>
 </div>
 
 <script>
 (function () {
   // ---- Struktur papan ----
-  // Kolom (x): 0 = dinding, 1-5 = blok kiri, 6 = batas tengah, 7-11 = blok kanan, 12 = dinding
-  // Baris (y): 0 = garis start, 1/7/13/19 = batas antar baris, 2-6/8-12/14-18 = blok lapangan, 20 = garis akhir
   const COLS = 13;
   const ROWS = 22;
   const LEFT_WALL = 0;
   const RIGHT_WALL = 12;
   const CENTER_X = 6;
-  const H_LANES = [1, 7, 13, 19];   // batas antar baris: jalur penjaga baris
-  const START_Y = 20;   // garis start di bawah
-  const END_Y = 0;      // garis finish di atas
+  const H_LANES = [1, 7, 13, 19];
+  const END_Y = 0;        // garis finish (atas)
+  const START_Y = 20;     // garis start (hijau)
+  const BELOW_Y = 21;     // baris coklat, tempat penyerang dipasang
+  const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+  function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
   function zoneOf(x, y) {
     if (x === LEFT_WALL || x === RIGHT_WALL) return 'wall';
     if (y === START_Y) return 'start';
+    if (y === BELOW_Y) return 'below';
     if (y === END_Y) return 'end';
     if (H_LANES.includes(y) || x === CENTER_X) return 'lane';
     return 'field';
   }
   const ZONE_NAME = {
     wall: 'Dinding (merah)',
-    lane: 'Garis batas antar baris/kolom (putih)',
-    start: 'Garis start',
-    end: 'Garis akhir',
+    start: 'Garis start (hijau)',
+    below: 'Baris coklat',
+    end: 'Garis finish (biru)',
+    lane: 'Garis batas (putih)',
     field: 'Lapangan',
   };
 
@@ -173,70 +180,49 @@
   const boardEl = document.getElementById('board');
   const infoEl = document.getElementById('info');
   const statusEl = document.getElementById('status');
-  const faceBtn = document.getElementById('btn-face');
+  const hudEl = document.getElementById('hud');
+  const btnRoll = document.getElementById('btn-roll');
+  const btnEnd = document.getElementById('btn-end');
+  const btnFace = document.getElementById('btn-face');
+  const btnNext = document.getElementById('btn-next');
+  const toolBtns = Array.from(document.querySelectorAll('[data-tool]'));
   boardEl.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
   boardEl.style.gridTemplateRows = `repeat(${ROWS}, var(--cell))`;
 
   // ---- State ----
-  let guards = [];
-  const attackers = new Set();
-  let selectedId = null;
-  let tool = 'guard';
-  let touchMsg = '';
-  const cellEls = [];
+  const S = {
+    phase: 'setup',      // 'setup' | 'play' | 'over'
+    tool: 'guard',       // alat saat pemasangan
+    round: 1,
+    turn: 'attacker',    // 'attacker' | 'guard'
+    roll: null,          // hasil dadu giliran ini
+    pips: 0,             // sisa mata dadu
+    activeId: null,      // satu pemain per giliran
+    guards: [],          // { id, type:'h'|'v', x, y, facing, visited }
+    attackers: [],       // { id, x, y }
+    msg: '',
+  };
+  let attCounter = 0;
+  let cellEls = [];
 
-  function key(x, y) { return x + ',' + y; }
-  function guardAt(x, y) { return guards.find(g => g.x === x && g.y === y) || null; }
-  function getGuard(id) { return guards.find(g => g.id === id) || null; }
-  function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
-
-  // Papan dimulai kosong: penjaga dipasang manual (5 penjaga), lalu penyerang di kotak coklat.
-  function presetGuards() {
-    return [];
+  function k(x, y) { return x + ',' + y; }
+  function guardAt(x, y) { return S.guards.find(g => g.x === x && g.y === y) || null; }
+  function attAt(x, y) { return S.attackers.find(a => a.x === x && a.y === y) || null; }
+  function getGuard(id) { return S.guards.find(g => g.id === id) || null; }
+  function getAtt(id) { return S.attackers.find(a => a.id === id) || null; }
+  function occupiedBy(x, y, ignoreId) {
+    const g = guardAt(x, y), a = attAt(x, y);
+    return (g && g.id !== ignoreId) || (a && a.id !== ignoreId);
   }
-
-  function occupied(x, y) { return !!guardAt(x, y) || attackers.has(key(x, y)); }
-  function isBrown(x, y) { return y === START_Y + 1 && zoneOf(x, y) !== 'wall'; }
-  function hGuardCount() { return guards.filter(g => g.type === 'h').length; }
-  function vGuardCount() { return guards.filter(g => g.type === 'v').length; }
-
-  function placeGuard(x, y) {
-    if (zoneOf(x, y) === 'wall') return 'Dinding tidak bisa diisi.';
-    if (occupied(x, y)) return 'Kotak sudah terisi.';
-    if (H_LANES.includes(y)) {
-      if (guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
-      guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down' });
-      return '';
-    }
-    if (x === CENTER_X) {
-      if (vGuardCount() >= 1) return 'Penjaga kolom sudah ada.';
-      guards.push({ id: 'V1', type: 'v', x, y, facing: 'right' });
-      return '';
-    }
-    return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
-  }
-
-  function placeAttacker(x, y) {
-    if (guards.length < 5) return 'Tempatkan 5 penjaga dulu.';
-    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
-    if (occupied(x, y)) return 'Kotak sudah terisi.';
-    attackers.add(key(x, y));
-    return '';
-  }
-
-  // Sel. langkah yang diizinkan untuk satu penjaga.
-  function movesFor(g) {
-    const candidates = g.type === 'h'
-      ? [{ x: g.x - 1, y: g.y }, { x: g.x + 1, y: g.y }]
-      : [{ x: g.x, y: g.y - 1 }, { x: g.x, y: g.y + 1 }];
-    return candidates.filter(c =>
-      inBounds(c.x, c.y) && !guardAt(c.x, c.y) && !attackers.has(key(c.x, c.y)));
-  }
+  function hCount() { return S.guards.filter(g => g.type === 'h').length; }
+  function vCount() { return S.guards.filter(g => g.type === 'v').length; }
+  function isBrown(x, y) { return y === BELOW_Y && zoneOf(x, y) !== 'wall'; }
+  function turnName() { return S.turn === 'attacker' ? 'Penyerang' : 'Penjaga'; }
 
   // Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap).
   function threatCells(g) {
     const d = g.type === 'h'
-      ? { dx: 0, dy: 1 }
+      ? { dx: 0, dy: 1 }                       // penjaga baris selalu menghadap garis start (bawah)
       : (g.facing === 'left' ? { dx: -1, dy: 0 } : { dx: 1, dy: 0 });
     const fx = g.x + d.dx;
     const fy = g.y + d.dy;
@@ -246,49 +232,246 @@
     return [{ x: fx, y: fy }, ...sides].filter(c => inBounds(c.x, c.y));
   }
 
-  // Jika penyerang berada di area sentuh penjaga, peran keduanya ditukar.
-  function resolveTouches() {
-    for (let round = 0; round < 20; round++) {
-      let swapped = false;
-      for (const g of [...guards]) {
-        const hit = threatCells(g).find(c => attackers.has(key(c.x, c.y)));
-        if (!hit) continue;
-        attackers.delete(key(hit.x, hit.y));
-        attackers.add(key(g.x, g.y));
-        guards = guards.filter(o => o !== g);
-        guards.push({ id: g.id, type: g.type, facing: g.facing, x: hit.x, y: hit.y });
-        touchMsg = `Penyerang di (kolom ${hit.x + 1}, baris ${hit.y + 1}) tersentuh ${g.id}. Peran ditukar.`;
-        swapped = true;
-        break;
-      }
-      if (!swapped) return;
+  // ---- Pemasangan (fase setup) ----
+  function placeGuard(x, y) {
+    if (zoneOf(x, y) === 'wall') return 'Dinding tidak bisa diisi.';
+    if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
+    if (H_LANES.includes(y)) {
+      if (S.guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
+      S.guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down', visited: null });
+      return '';
     }
+    if (x === CENTER_X) {
+      if (vCount() >= 1) return 'Penjaga kolom sudah ada.';
+      S.guards.push({ id: 'V1', type: 'v', x, y, facing: 'right', visited: null });
+      return '';
+    }
+    return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
   }
 
-  function arrowOf(g) {
-    if (g.type === 'h') return '▼';                 // menghadap garis start (di bawah)
-    return g.facing === 'left' ? '◀' : '▶';
+  function placeAttacker(x, y) {
+    if (S.guards.length < 5) return 'Tempatkan 5 penjaga dulu.';
+    if (S.attackers.length >= 5) return 'Penyerang sudah 5.';
+    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
+    if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
+    attCounter++;
+    S.attackers.push({ id: 'A' + attCounter, x, y });
+    return '';
   }
 
   function setupText() {
-    const h = hGuardCount();
-    const v = vGuardCount();
+    const h = hCount(), v = vCount();
     let hint;
-    if (h < 4) hint = `Klik garis batas baris untuk meletakkan penjaga baris (${4 - h} lagi).`;
-    else if (v < 1) hint = 'Klik garis batas tengah (kolom) untuk meletakkan penjaga kolom.';
-    else hint = 'Semua penjaga sudah ditempatkan. Pilih Penyerang lalu klik kotak coklat.';
-    return `Penjaga ${h + v}/5 · Penyerang ${attackers.size} · ${hint}`;
+    if (h < 4) hint = `Klik garis batas baris untuk penjaga baris (${4 - h} lagi).`;
+    else if (v < 1) hint = 'Klik garis batas tengah (kolom) untuk penjaga kolom.';
+    else if (S.attackers.length < 5) hint = `Pilih Penyerang lalu klik kotak coklat (${5 - S.attackers.length} lagi).`;
+    else hint = 'Pemasangan selesai.';
+    return `Penjaga ${S.guards.length}/5 · Penyerang ${S.attackers.length}/5 · ${hint}`;
   }
 
-  function statusText(sel) {
-    if (touchMsg) return touchMsg;
-    if (!sel) return setupText();
-    if (sel.type === 'h') {
-      return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▼). Gunakan ← → atau klik kotak yang disorot.`;
+  function checkSetupDone() {
+    if (S.guards.length === 5 && S.attackers.length === 5) {
+      S.phase = 'play';
+      S.turn = 'attacker';
+      S.roll = null;
+      S.pips = 0;
+      S.activeId = null;
+      S.msg = 'Pemasangan selesai. Giliran Penyerang: lempar dadu.';
     }
-    return `Dipilih ${sel.id} (penjaga kolom): bergerak atas–bawah, menghadap ${sel.facing === 'left' ? 'kiri' : 'kanan'}. ↑ ↓ untuk bergerak, ← → untuk memilih hadap.`;
   }
 
+  // ---- Permainan (fase play) ----
+  // Langkah penyerang: setiap kotak memakai 1 mata dadu, tanpa melewati kotak yang sama dalam satu jalur.
+  // Bergerak mundur (ke bawah) harus memakai semua mata dadu.
+  function attackerReach(a) {
+    const result = new Map();
+    const p = S.pips;
+    const visited = new Set([k(a.x, a.y)]);
+    const startY = a.y;
+    function record(nx, ny, L) {
+      if (ny > startY && L !== p) return;   // mundur: harus memakai semua mata dadu
+      const kk = k(nx, ny);
+      if (!result.has(kk) || result.get(kk) > L) result.set(kk, L);
+    }
+    function dfs(x, y, steps) {
+      if (steps >= p) return;
+      for (const d of DIRS) {
+        const nx = x + d[0], ny = y + d[1];
+        if (!inBounds(nx, ny)) continue;
+        const kk = k(nx, ny);
+        if (visited.has(kk)) continue;
+        if (zoneOf(nx, ny) === 'wall') continue;
+        if (occupiedBy(nx, ny, a.id)) continue;
+        visited.add(kk);
+        record(nx, ny, steps + 1);
+        dfs(nx, ny, steps + 1);
+        visited.delete(kk);
+      }
+    }
+    dfs(a.x, a.y, 0);
+    return result;
+  }
+
+  // Langkah penjaga: hanya lurus sesuai garis (kiri-kanan atau atas-bawah), 1 mata dadu per kotak,
+  // tidak boleh kembali ke kotak yang sudah dilewati dalam satu giliran.
+  function guardReach(g) {
+    const result = new Map();
+    const vis = g.visited || new Set([k(g.x, g.y)]);
+    const dirs = g.type === 'h' ? [[1, 0], [-1, 0]] : [[0, 1], [0, -1]];
+    for (const d of dirs) {
+      let x = g.x, y = g.y;
+      for (let s = 1; s <= S.pips; s++) {
+        x += d[0];
+        y += d[1];
+        if (!inBounds(x, y) || zoneOf(x, y) === 'wall' || occupiedBy(x, y, g.id) || vis.has(k(x, y))) break;
+        result.set(k(x, y), s);
+      }
+    }
+    return result;
+  }
+
+  function rollDice() {
+    if (S.phase !== 'play' || S.roll !== null) return;
+    S.roll = 1 + Math.floor(Math.random() * 6);
+    S.pips = S.roll;
+    S.activeId = null;
+    S.msg = `Dadu ${S.roll}. Giliran ${turnName()}: pilih satu ${S.turn === 'attacker' ? 'penyerang' : 'penjaga'}.`;
+  }
+
+  function endTurn(prefix) {
+    S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
+    S.roll = null;
+    S.pips = 0;
+    S.activeId = null;
+    S.guards.forEach(g => { g.visited = null; });
+    S.msg = `${prefix ? prefix + ' ' : ''}Giliran ${turnName()}: lempar dadu.`;
+  }
+
+  function afterAction(text) {
+    S.msg = text;
+    if (S.pips <= 0) endTurn(text);
+  }
+
+  function roundOver(g, a) {
+    S.phase = 'over';
+    S.roll = null;
+    S.pips = 0;
+    S.activeId = null;
+    S.msg = `Penjaga ${g.id} menyentuh penyerang ${a.id} di kotak merah. Babak selesai.`;
+  }
+
+  function nextRound() {
+    if (S.phase !== 'over') return;
+    S.round++;
+    S.guards = [];
+    S.attackers = [];
+    attCounter = 0;
+    S.phase = 'setup';
+    S.tool = 'guard';
+    S.turn = 'attacker';
+    S.roll = null;
+    S.pips = 0;
+    S.activeId = null;
+    S.msg = `Babak ${S.round}: peran ditukar. Pasang 5 penjaga dulu, lalu 5 penyerang di kotak coklat.`;
+  }
+
+  // ---- Interaksi kotak ----
+  function onCell(x, y) {
+    if (S.phase === 'setup') return onSetupCell(x, y);
+    if (S.phase === 'over') { S.msg = 'Babak selesai. Tekan "Babak Berikutnya" untuk melanjutkan.'; return render(); }
+    return onPlayCell(x, y);
+  }
+
+  function onSetupCell(x, y) {
+    if (S.tool === 'erase') {
+      S.guards = S.guards.filter(g => !(g.x === x && g.y === y));
+      S.attackers = S.attackers.filter(a => !(a.x === x && a.y === y));
+      S.msg = setupText();
+    } else {
+      S.msg = S.tool === 'guard' ? placeGuard(x, y) : placeAttacker(x, y);
+      if (!S.msg) S.msg = setupText();
+    }
+    checkSetupDone();
+    render();
+  }
+
+  function onPlayCell(x, y) {
+    if (S.roll === null) { S.msg = 'Lempar dadu dulu.'; return render(); }
+    const g = guardAt(x, y);
+    const a = attAt(x, y);
+
+    if (S.turn === 'attacker') {
+      if (a) {
+        if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu penyerang per giliran.';
+        else { S.activeId = a.id; S.msg = `Penyerang ${a.id} dipilih. Sisa dadu ${S.pips}.`; }
+        return render();
+      }
+      const act = getAtt(S.activeId);
+      if (!act) { S.msg = 'Pilih penyerang dulu.'; return render(); }
+      const reach = attackerReach(act);
+      if (!reach.has(k(x, y))) { S.msg = 'Kotak itu tidak bisa dicapai dengan sisa dadu.'; return render(); }
+      const L = reach.get(k(x, y));
+      act.x = x;
+      act.y = y;
+      S.pips -= L;
+      afterAction(`Penyerang ${act.id} bergerak ${L} kotak.`);
+      return render();
+    }
+
+    // Giliran penjaga
+    if (g) {
+      if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu penjaga per giliran.';
+      else {
+        S.activeId = g.id;
+        if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
+        S.msg = `Penjaga ${g.id} dipilih. Sisa dadu ${S.pips}.`;
+      }
+      return render();
+    }
+    const gg = getGuard(S.activeId);
+    if (!gg) { S.msg = 'Pilih penjaga dulu.'; return render(); }
+    if (a) {
+      if (!threatCells(gg).some(c => c.x === a.x && c.y === a.y)) {
+        S.msg = 'Penyerang itu tidak ada di kotak merah penjaga.';
+        return render();
+      }
+      if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk menyentuh.'; return render(); }
+      S.pips -= 1;
+      roundOver(gg, a);
+      return render();
+    }
+    const reach = guardReach(gg);
+    if (!reach.has(k(x, y))) { S.msg = 'Kotak itu tidak bisa dicapai penjaga ini.'; return render(); }
+    const L = reach.get(k(x, y));
+    if (!gg.visited) gg.visited = new Set([k(gg.x, gg.y)]);
+    const dx = Math.sign(x - gg.x), dy = Math.sign(y - gg.y);
+    let cx = gg.x, cy = gg.y;
+    for (let i = 0; i < L; i++) { cx += dx; cy += dy; gg.visited.add(k(cx, cy)); }
+    gg.x = x;
+    gg.y = y;
+    S.pips -= L;
+    afterAction(`Penjaga ${gg.id} bergerak ${L} kotak.`);
+    render();
+  }
+
+  function turnFace() {
+    if (S.phase !== 'play' || S.turn !== 'guard') return;
+    const gg = getGuard(S.activeId);
+    if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
+    if (S.pips < 1) { S.msg = 'Tidak ada sisa dadu untuk berganti hadap.'; return render(); }
+    gg.facing = gg.facing === 'left' ? 'right' : 'left';
+    S.pips -= 1;
+    afterAction(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
+    render();
+  }
+
+  function endTurnClick() {
+    if (S.phase !== 'play' || S.roll === null) return;
+    endTurn('Giliran diakhiri.');
+    render();
+  }
+
+  // ---- Render ----
   function buildBoard() {
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
@@ -302,26 +485,49 @@
     }
   }
 
+  function activeReach() {
+    if (S.phase !== 'play' || S.roll === null) return new Map();
+    if (S.turn === 'attacker') {
+      const a = getAtt(S.activeId);
+      return a ? attackerReach(a) : new Map();
+    }
+    const g = getGuard(S.activeId);
+    return g ? guardReach(g) : new Map();
+  }
+
+  function touchTargets() {
+    if (S.phase !== 'play' || S.turn !== 'guard' || S.roll === null) return new Set();
+    const g = getGuard(S.activeId);
+    if (!g || S.pips < 1) return new Set();
+    return new Set(threatCells(g).filter(c => attAt(c.x, c.y)).map(c => k(c.x, c.y)));
+  }
+
   function render() {
-    const sel = getGuard(selectedId);
-    const valid = sel ? movesFor(sel) : [];
     const threat = new Set();
-    guards.forEach(g => threatCells(g).forEach(c => threat.add(key(c.x, c.y))));
+    S.guards.forEach(g => threatCells(g).forEach(c => threat.add(k(c.x, c.y))));
+    const reach = activeReach();
+    const touch = touchTargets();
+    const activeKey = (() => {
+      const p = S.turn === 'attacker' ? getAtt(S.activeId) : getGuard(S.activeId);
+      return p ? k(p.x, p.y) : null;
+    })();
+
     for (let y = 0; y < ROWS; y++) {
       for (let x = 0; x < COLS; x++) {
         const el = cellEls[y * COLS + x];
         const zone = zoneOf(x, y);
+        const kk = k(x, y);
         let cls = 'cell z-' + zone;
         if (zone === 'field' && (x + y) % 2) cls += ' alt';
-        if (y === START_Y + 1 && zone !== 'wall') cls = 'cell z-below'; // baris di bawah start: coklat
-        if (threat.has(key(x, y))) cls += ' threat';
-        if (valid.some(c => c.x === x && c.y === y)) cls += ' valid';
-        if (sel && sel.x === x && sel.y === y) cls += ' selected';
+        if (threat.has(kk)) cls += ' threat';
+        if (reach.has(kk)) cls += ' valid';
+        if (touch.has(kk)) cls += ' touch';
+        if (activeKey === kk) cls += ' selected';
         el.className = cls;
 
         while (el.lastChild) el.removeChild(el.lastChild);
-
-        if (attackers.has(key(x, y))) {
+        const a = attAt(x, y);
+        if (a) {
           const d = document.createElement('div');
           d.className = 'piece attacker';
           el.appendChild(d);
@@ -330,109 +536,62 @@
         if (g) {
           const d = document.createElement('div');
           d.className = 'piece guard ' + (g.type === 'h' ? 'g-h' : 'g-v');
-          d.textContent = arrowOf(g);
+          d.textContent = g.type === 'h' ? '▼' : (g.facing === 'left' ? '◀' : '▶');
           el.appendChild(d);
         }
       }
     }
-    faceBtn.disabled = !(sel && sel.type === 'v');
-    statusEl.textContent = statusText(sel);
+
+    const phaseName = S.phase === 'setup' ? 'Pemasangan' : S.phase === 'play' ? 'Permainan' : 'Babak selesai';
+    const rollText = S.roll === null ? '-' : S.roll;
+    hudEl.textContent = S.phase === 'play'
+      ? `Babak ${S.round} · ${phaseName} · Giliran: ${turnName()} · Dadu: ${rollText} · Sisa: ${S.pips}`
+      : `Babak ${S.round} · ${phaseName}`;
+    statusEl.textContent = S.msg || (S.phase === 'setup' ? setupText() : '');
+    updateButtons();
+  }
+
+  function updateButtons() {
+    const setup = S.phase === 'setup';
+    toolBtns.forEach(b => {
+      b.disabled = !setup;
+      b.classList.toggle('active', setup && b.dataset.tool === S.tool);
+    });
+    btnRoll.disabled = !(S.phase === 'play' && S.roll === null);
+    btnEnd.disabled = !(S.phase === 'play' && S.roll !== null);
+    const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
+    btnFace.disabled = !(S.phase === 'play' && S.turn === 'guard' && gg && gg.type === 'v' && S.pips >= 1);
+    btnNext.disabled = S.phase !== 'over';
   }
 
   function showHover(x, y) {
-    const occ = guardAt(x, y) ? ` — penjaga ${guardAt(x, y).id}`
-      : attackers.has(key(x, y)) ? ' — penyerang' : '';
+    const g = guardAt(x, y), a = attAt(x, y);
+    const occ = g ? ` — penjaga ${g.id}` : a ? ` — penyerang ${a.id}` : '';
     infoEl.textContent = `Kotak (kolom ${x + 1}, baris ${y + 1}) · ${ZONE_NAME[zoneOf(x, y)]}${occ}`;
   }
 
-  function onCell(x, y) {
-    touchMsg = '';
-    if (tool === 'erase') {
-      guards = guards.filter(g => !(g.x === x && g.y === y));
-      attackers.delete(key(x, y));
-      if (selectedId && !getGuard(selectedId)) selectedId = null;
-      render();
-      showHover(x, y);
-      return;
-    }
-    const g = guardAt(x, y);
-    if (g) {
-      selectedId = selectedId === g.id ? null : g.id;
-      render();
-      showHover(x, y);
-      return;
-    }
-    const sel = getGuard(selectedId);
-    if (sel && movesFor(sel).some(c => c.x === x && c.y === y)) {
-      sel.x = x;
-      sel.y = y;
-      resolveTouches();
-      render();
-      showHover(x, y);
-      return;
-    }
-    if (sel) selectedId = null;
-
-    touchMsg = tool === 'guard' ? placeGuard(x, y) : placeAttacker(x, y);
-    resolveTouches();
-    render();
-    showHover(x, y);
-  }
-
-  // ---- Kontrol keyboard untuk penjaga yang dipilih ----
-  document.addEventListener('keydown', e => {
-    const sel = getGuard(selectedId);
-    if (!sel) return;
-    const moves = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
-    const d = moves[e.key];
-    if (!d) return;
-    e.preventDefault();
-    touchMsg = '';
-
-    if (sel.type === 'v' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-      sel.facing = e.key === 'ArrowLeft' ? 'left' : 'right';
-      resolveTouches();
-      render();
-      return;
-    }
-    if (sel.type === 'h' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
-
-    const tx = sel.x + d[0];
-    const ty = sel.y + d[1];
-    if (movesFor(sel).some(c => c.x === tx && c.y === ty)) {
-      sel.x = tx;
-      sel.y = ty;
-      resolveTouches();
-      render();
-    }
-  });
-
   // ---- Toolbar ----
-  document.querySelectorAll('[data-tool]').forEach(btn => {
+  toolBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      tool = btn.dataset.tool;
-      document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b === btn));
+      if (S.phase !== 'setup') return;
+      if (btn.dataset.tool === 'erase') S.tool = 'erase';
+      else S.tool = btn.dataset.tool;
+      render();
     });
   });
-  faceBtn.addEventListener('click', () => {
-    const sel = getGuard(selectedId);
-    if (sel && sel.type === 'v') {
-      sel.facing = sel.facing === 'left' ? 'right' : 'left';
-      touchMsg = '';
-      resolveTouches();
-      render();
-    }
-  });
+  btnRoll.addEventListener('click', () => { rollDice(); render(); });
+  btnEnd.addEventListener('click', endTurnClick);
+  btnFace.addEventListener('click', turnFace);
+  btnNext.addEventListener('click', () => { nextRound(); render(); });
   document.getElementById('btn-reset').addEventListener('click', () => {
-    guards = presetGuards();
-    attackers.clear();
-    selectedId = null;
+    S.phase = 'setup'; S.tool = 'guard'; S.round = 1; S.turn = 'attacker';
+    S.roll = null; S.pips = 0; S.activeId = null; S.guards = []; S.attackers = [];
+    attCounter = 0; S.msg = 'Papan direset.';
     render();
-    infoEl.textContent = 'Papan direset.';
   });
 
   buildBoard();
-  guards = presetGuards();
+  S.msg = setupText();
   render();
 })();
 </script>
