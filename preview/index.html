@@ -48,6 +48,7 @@
   .toolbar button:disabled { opacity: 0.4; cursor: default; }
   .toolbar button.active { border-color: #fff; }
   .toolbar button.attacker { background: var(--attacker); }
+  .toolbar button.guard { background: var(--guard-h); }
   .toolbar button.reset { background: #5d4037; }
 
   .board {
@@ -115,8 +116,9 @@
 <p class="subtitle">Garis batas berwarna putih. Penjaga baris (ungu) bergerak kiri–kanan dan menghadap garis start. Penjaga kolom (teal) bergerak atas–bawah dan bisa menghadap kiri atau kanan.</p>
 
 <div class="toolbar">
-  <button class="attacker active" data-tool="attacker">Pion Penyerang</button>
-  <button data-tool="erase">Hapus Pion</button>
+  <button class="guard active" data-tool="guard">Penjaga</button>
+  <button class="attacker" data-tool="attacker">Penyerang</button>
+  <button data-tool="erase">Hapus</button>
   <button id="btn-face" disabled>Putar Hadap Penjaga Kolom</button>
   <button id="btn-reset" class="reset">Reset Papan</button>
 </div>
@@ -179,7 +181,7 @@
   let guards = [];
   const attackers = new Set();
   let selectedId = null;
-  let tool = 'attacker';
+  let tool = 'guard';
   let touchMsg = '';
   const cellEls = [];
 
@@ -188,14 +190,38 @@
   function getGuard(id) { return guards.find(g => g.id === id) || null; }
   function inBounds(x, y) { return x >= 0 && x < COLS && y >= 0 && y < ROWS; }
 
+  // Papan dimulai kosong: penjaga dipasang manual (5 penjaga), lalu penyerang di kotak coklat.
   function presetGuards() {
-    return [
-      { id: 'H1', type: 'h', x: 3, y: 19, facing: 'down' },
-      { id: 'H2', type: 'h', x: 9, y: 13, facing: 'down' },
-      { id: 'H3', type: 'h', x: 3, y: 7, facing: 'down' },
-      { id: 'H4', type: 'h', x: 9, y: 1, facing: 'down' },
-      { id: 'V1', type: 'v', x: CENTER_X, y: 10, facing: 'right' },
-    ];
+    return [];
+  }
+
+  function occupied(x, y) { return !!guardAt(x, y) || attackers.has(key(x, y)); }
+  function isBrown(x, y) { return y === START_Y + 1 && zoneOf(x, y) !== 'wall'; }
+  function hGuardCount() { return guards.filter(g => g.type === 'h').length; }
+  function vGuardCount() { return guards.filter(g => g.type === 'v').length; }
+
+  function placeGuard(x, y) {
+    if (zoneOf(x, y) === 'wall') return 'Dinding tidak bisa diisi.';
+    if (occupied(x, y)) return 'Kotak sudah terisi.';
+    if (H_LANES.includes(y)) {
+      if (guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
+      guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down' });
+      return '';
+    }
+    if (x === CENTER_X) {
+      if (vGuardCount() >= 1) return 'Penjaga kolom sudah ada.';
+      guards.push({ id: 'V1', type: 'v', x, y, facing: 'right' });
+      return '';
+    }
+    return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
+  }
+
+  function placeAttacker(x, y) {
+    if (guards.length < 5) return 'Tempatkan 5 penjaga dulu.';
+    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
+    if (occupied(x, y)) return 'Kotak sudah terisi.';
+    attackers.add(key(x, y));
+    return '';
   }
 
   // Sel. langkah yang diizinkan untuk satu penjaga.
@@ -244,9 +270,19 @@
     return g.facing === 'left' ? '◀' : '▶';
   }
 
+  function setupText() {
+    const h = hGuardCount();
+    const v = vGuardCount();
+    let hint;
+    if (h < 4) hint = `Klik garis batas baris untuk meletakkan penjaga baris (${4 - h} lagi).`;
+    else if (v < 1) hint = 'Klik garis batas tengah (kolom) untuk meletakkan penjaga kolom.';
+    else hint = 'Semua penjaga sudah ditempatkan. Pilih Penyerang lalu klik kotak coklat.';
+    return `Penjaga ${h + v}/5 · Penyerang ${attackers.size} · ${hint}`;
+  }
+
   function statusText(sel) {
     if (touchMsg) return touchMsg;
-    if (!sel) return 'Klik penjaga (ungu/teal) untuk memilihnya, lalu klik kotak yang disorot untuk memindahkannya.';
+    if (!sel) return setupText();
     if (sel.type === 'h') {
       return `Dipilih ${sel.id} (penjaga baris): bergerak kiri–kanan, menghadap garis start (▼). Gunakan ← → atau klik kotak yang disorot.`;
     }
@@ -311,6 +347,14 @@
 
   function onCell(x, y) {
     touchMsg = '';
+    if (tool === 'erase') {
+      guards = guards.filter(g => !(g.x === x && g.y === y));
+      attackers.delete(key(x, y));
+      if (selectedId && !getGuard(selectedId)) selectedId = null;
+      render();
+      showHover(x, y);
+      return;
+    }
     const g = guardAt(x, y);
     if (g) {
       selectedId = selectedId === g.id ? null : g.id;
@@ -329,13 +373,7 @@
     }
     if (sel) selectedId = null;
 
-    if (zoneOf(x, y) === 'wall') {
-      infoEl.textContent = 'Garis batas kolom tidak bisa diisi pion.';
-      render();
-      return;
-    }
-    if (tool === 'attacker') attackers.add(key(x, y));
-    else attackers.delete(key(x, y));
+    touchMsg = tool === 'guard' ? placeGuard(x, y) : placeAttacker(x, y);
     resolveTouches();
     render();
     showHover(x, y);
