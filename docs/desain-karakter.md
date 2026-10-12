@@ -76,7 +76,7 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 | Tongkonan | Toraja | Dalle | nama khas Toraja |
 | Pitung | Betawi | Pitung | tokoh Betawi |
 | Pepadu | Sasak | Lalu | gelar laki-laki Sasak |
-| Panah Lurus | Papua | (belum ada) | perlu nama dari sumber lokal |
+| Panah Lurus | Papua | Wanggai | pilihan user |
 
 ### Kartu (per tim, 30 kartu)
 - Arah tanpa angka: 5 atas-bawah, 5 kiri-kanan, 5 silang.
@@ -84,7 +84,7 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 - 5 kartu bintang (hanya ikon, efek dari karakter).
 - 5 kartu stamina: +1, +2, +3, +4, +5 (masing-masing 1 kartu), atau −1 sampai −5.
   - Dimainkan tanpa biaya stamina.
-  - Pemain memilih: menambah stamina diri sendiri, atau mengurangi stamina lawan.
+  - Pemain memilih karakter tujuan (karakter tim sendiri untuk menambah, atau karakter lawan untuk mengurangi).
 
 ### Stamina
 - Setiap karakter punya bar stamina awal, dan nilai awal berbeda tiap karakter.
@@ -104,3 +104,7 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 ### Pertanyaan terbuka
 - Kartu arah: dijawab (bayar N untuk N kotak), lihat di atas.
 - Penambahan stamina per giliran: semua karakter tim (+1 setiap pergantian giliran).
+
+### Keputusan terbaru
+- Nama karakter Papua: Wanggai.
+- Kartu stamina memilih karakter tujuan saat dimainkan.
