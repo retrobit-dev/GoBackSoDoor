@@ -51,18 +51,40 @@
   .toolbar button.evade { background: #2e7d32; }
   .toolbar button.accept { background: #b71c1c; }
   .toolbar button.reset { background: #5d4037; }
+  .toolbar button.star { background: #f9a825; color: #1b1b1b; }
+
+  .steps { display: flex; gap: 6px; align-items: center; justify-content: center; margin-bottom: 8px; font-size: 13px; }
+  .steps button {
+    width: 34px; height: 34px; border-radius: 50%; border: 2px solid #fff3; background: #37483b;
+    color: #fff; font-weight: 700; cursor: pointer;
+  }
+  .steps button.sel { background: #ffeb3b; color: #1b1b1b; border-color: #fff; }
+  .steps button:disabled { opacity: 0.35; cursor: default; }
 
   .hand-title { font-size: 13px; margin-bottom: 6px; opacity: 0.85; min-height: 18px; }
-  .hand { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 10px; max-width: 900px; min-height: 40px; }
+  .hand { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 10px; max-width: 900px; min-height: 150px; }
+
+  /* Kartu gaya Clash Royale: bingkai, lencana biaya, ikon, nama, deskripsi */
   .card {
-    border: 2px solid #fff3; border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 600;
-    background: #37483b; color: #fff; cursor: pointer; min-width: 92px; text-align: center;
+    position: relative; width: 98px; height: 140px; padding: 0;
+    border: 3px solid #f5c542; border-radius: 12px; cursor: pointer; overflow: hidden;
+    background: linear-gradient(#3b4a3f, #1f2a22); color: #fff; text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.45); display: flex; flex-direction: column;
   }
-  .card.move { background: #3949ab; }
-  .card.touch { background: #b71c1c; }
-  .card.evade { background: #2e7d32; }
-  .card.special { background: #6a1b9a; }
-  .card.selected { border-color: #ffeb3b; box-shadow: 0 0 0 2px #ffeb3b; }
+  .card .cost {
+    position: absolute; top: -2px; left: -2px; width: 30px; height: 30px; border-radius: 50%;
+    background: #1e88e5; border: 2px solid #fff; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+  }
+  .card .art { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; }
+  .card .name { background: rgba(0,0,0,0.45); font-size: 12px; font-weight: 700; padding: 4px 2px; }
+  .card .desc { font-size: 10px; padding: 2px 4px 4px; opacity: 0.85; background: rgba(0,0,0,0.45); min-height: 16px; }
+  .card.move { background: linear-gradient(#5c6bc0, #283593); }
+  .card.touch { background: linear-gradient(#ef5350, #8e1b1b); }
+  .card.evade { background: linear-gradient(#66bb6a, #1b5e20); }
+  .card.star { background: linear-gradient(#ffe082, #b8860b); color: #1b1b1b; }
+  .card.stamina { background: linear-gradient(#26c6da, #006064); }
+  .card.selected { border-color: #fff; box-shadow: 0 0 0 3px #ffeb3b; }
   .card:disabled { opacity: 0.4; cursor: default; }
 
   .board {
@@ -95,21 +117,36 @@
   .cell.touch { box-shadow: inset 0 0 0 4px #ff1744; }
   .cell.selected { outline: 3px solid #ff9800; outline-offset: -3px; }
 
-  .piece { position: relative; z-index: 1; pointer-events: none; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .piece { position: relative; z-index: 1; pointer-events: none; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 12px; }
   .piece.attacker {
-    width: 72%; height: 72%; border-radius: 50%;
+    width: 74%; height: 74%; border-radius: 50%;
     background: var(--attacker);
     border: 3px solid rgba(255, 255, 255, 0.85);
     box-shadow: 0 2px 4px rgba(0,0,0,0.4);
   }
   .piece.guard {
     width: 80%; height: 80%; border-radius: 5px;
-    color: #fff; font-size: 13px;
     border: 2px solid #fff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.45);
   }
   .piece.g-h { background: var(--guard-h); }
   .piece.g-v { background: var(--guard-v); }
+  .piece .sta {
+    position: absolute; bottom: -4px; right: -4px; background: #f9a825; color: #1b1b1b;
+    font-size: 10px; border-radius: 8px; padding: 0 3px; font-weight: 800;
+  }
+
+  .charpanel {
+    margin-top: 10px; background: #243428; padding: 10px 14px; border-radius: 10px; max-width: 760px;
+    width: 100%; display: flex; gap: 12px; align-items: center; min-height: 64px;
+  }
+  .charpanel .initial {
+    width: 46px; height: 46px; border-radius: 50%; background: #1e88e5; border: 2px solid #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; flex: none;
+  }
+  .charpanel .meta { font-size: 13px; line-height: 1.4; flex: 1; }
+  .bar { height: 10px; background: #111; border-radius: 6px; overflow: hidden; margin-top: 4px; }
+  .bar > div { height: 100%; background: linear-gradient(90deg, #f9a825, #ffeb3b); }
 
   .info {
     margin-top: 12px; min-height: 40px; font-size: 15px; text-align: center;
@@ -126,7 +163,7 @@
 <body>
 
 <h1>Gobak Sodor — Preview Papan</h1>
-<p class="subtitle">Setiap tim mendapat 3 babak sebagai penyerang. Tim pertama dengan 5 poin menang, atau tim dengan poin tertinggi setelah 6 babak. Gerak memakai kartu arah dan angka 1–3. Penjaga memakai kartu sentuh, penyerang memakai kartu menghindar.</p>
+<p class="subtitle">Setiap tim mendapat 3 babak sebagai penyerang. Tim pertama dengan 5 poin menang, atau tim dengan poin tertinggi setelah 6 babak. Gerak memakai kartu arah; jumlah kotak = stamina yang dibayar. Kartu bintang mengaktifkan efek karakter (belum aktif di preview ini).</p>
 
 <div class="hud" id="hud"></div>
 
@@ -136,17 +173,20 @@
   <button data-tool="erase">Hapus</button>
   <button id="btn-skip">Lewati Giliran</button>
   <button id="btn-face">Putar Hadap</button>
+  <button id="btn-end" class="star">Akhiri Giliran</button>
   <button id="btn-evade" class="evade">Hindar (kartu menghindar)</button>
   <button id="btn-accept" class="accept">Terima Sentuhan</button>
   <button id="btn-next">Babak Berikutnya</button>
   <button id="btn-reset" class="reset">Reset Permainan</button>
 </div>
 
+<div class="steps" id="steps"></div>
 <div class="hand-title" id="hand-title"></div>
 <div class="hand" id="hand"></div>
 
 <div class="board" id="board"></div>
 
+<div class="charpanel" id="charpanel"></div>
 <div class="info" id="info">Arahkan kursor ke kotak untuk melihat detailnya.</div>
 <div class="status" id="status"></div>
 
@@ -175,13 +215,36 @@
   const WIN_SCORE = 5;
   const TOTAL_ROUNDS = 6; // tiap tim 3 babak sebagai penyerang
   const HAND_SIZE = 5;
+  const TOUCH_COST = 3;
+  const STAR_COST = 5;
+  const MAX_STEPS = 5;
   const DIR_NAME = { vertical: 'Atas-Bawah', horizontal: 'Kanan-Kiri', cross: 'Silang' };
+  const DIR_ICON = { vertical: '↕', horizontal: '↔', cross: '✕' };
   const DIR_LIST = ['vertical', 'horizontal', 'cross'];
   const SIGNS = {
     vertical: [[0, 1], [0, -1]],
     horizontal: [[1, 0], [-1, 0]],
     cross: [[1, 1], [1, -1], [-1, 1], [-1, -1]],
     ortho: [[0, 1], [0, -1], [1, 0], [-1, 0]],
+  };
+
+  // ---- Karakter awal (nama umum per suku). Satu efek per karakter. ----
+  // Efek belum aktif di preview ini; stamina awal berbeda tiap karakter.
+  const ROSTER = {
+    attacker: [
+      { name: 'Slamet', tribe: 'Jawa', rarity: 'Umum', stamina: 4, effect: 'Langkah ganda: angka kartu gerak dikali 2.' },
+      { name: 'Sutan', tribe: 'Minangkabau', rarity: 'Langka', stamina: 3, effect: 'Melompati satu penjaga di garis lurus tanpa tersentuh.' },
+      { name: 'Ekot', tribe: 'Dayak Ngaju', rarity: 'Umum', stamina: 5, effect: 'Sentuhan pertama dibatalkan tanpa kartu menghindar.' },
+      { name: 'Wayan', tribe: 'Bali', rarity: 'Umum', stamina: 4, effect: 'Tukar posisi dengan penyerang rekan di sebelahnya.' },
+      { name: 'Andi', tribe: 'Bugis', rarity: 'Epik', stamina: 3, effect: 'Gerak kanan-kiri atau silang melanjutkan ke sisi lain saat kena dinding.' },
+    ],
+    guard: [
+      { name: 'Togar', tribe: 'Batak', rarity: 'Umum', stamina: 5, effect: 'Area merah bertambah satu kotak ke depan.' },
+      { name: 'Dalle', tribe: 'Toraja', rarity: 'Umum', stamina: 3, effect: 'Satu penyerang lawan tidak bisa dipilih pada giliran berikutnya.' },
+      { name: 'Pitung', tribe: 'Betawi', rarity: 'Langka', stamina: 4, effect: 'Penyerang yang menghindar tetap tersentuh.' },
+      { name: 'Lalu', tribe: 'Sasak', rarity: 'Umum', stamina: 4, effect: 'Penjaga yang dipilih boleh bergerak satu kotak tambahan.' },
+      { name: 'Wanggai', tribe: 'Papua', rarity: 'Epik', stamina: 3, effect: 'Dapat menyentuh penyerang yang berjarak dua kotak lurus.' },
+    ],
   };
 
   function k(x, y) { return x + ',' + y; }
@@ -212,8 +275,11 @@
   const hudEl = document.getElementById('hud');
   const handEl = document.getElementById('hand');
   const handTitleEl = document.getElementById('hand-title');
+  const stepsEl = document.getElementById('steps');
+  const charEl = document.getElementById('charpanel');
   const btnSkip = document.getElementById('btn-skip');
   const btnFace = document.getElementById('btn-face');
+  const btnEnd = document.getElementById('btn-end');
   const btnEvade = document.getElementById('btn-evade');
   const btnAccept = document.getElementById('btn-accept');
   const btnNext = document.getElementById('btn-next');
@@ -232,14 +298,18 @@
     turn: 'attacker',      // attacker | guard
     activeId: null,        // satu pemain per giliran
     activeCard: null,      // kartu yang dipilih untuk giliran ini
-    pending: null,         // { g, a } saat menunggu jawaban penyerang (menghindar / terima)
-    guards: [],            // { id, type:'h'|'v', x, y, facing, visited, touchedH, moved }
-    attackers: [],         // { id, x, y, moved }
+    steps: 1,              // jumlah kotak = stamina yang dibayar (kartu arah)
+    pending: null,         // { g, a } saat menunggu jawaban penyerang
+    postMove: null,        // id pemain yang sudah bergerak; boleh pakai bintang atau akhiri giliran
+    drew: false,           // sudah ambil kartu di giliran ini
+    guards: [],            // { id, char, type:'h'|'v', x, y, facing, visited, touchedH, stamina }
+    attackers: [],         // { id, char, x, y, stamina }
     decks: { attacker: null, guard: null }, // { deck, hand, discard }
     msg: '',
   };
   let uidCounter = 0;
   let attCounter = 0;
+  let guardCounter = 0;
   let cellEls = [];
 
   function teamName(t) { return 'Tim ' + t; }
@@ -251,6 +321,7 @@
   function attAt(x, y) { return S.attackers.find(a => a.x === x && a.y === y) || null; }
   function getGuard(id) { return S.guards.find(g => g.id === id) || null; }
   function getAtt(id) { return S.attackers.find(a => a.id === id) || null; }
+  function getPiece(id) { return getAtt(id) || getGuard(id); }
   function occupiedBy(x, y, ignoreId) {
     const g = guardAt(x, y), a = attAt(x, y);
     return (g && g.id !== ignoreId) || (a && a.id !== ignoreId);
@@ -272,7 +343,7 @@
     return [{ x: fx, y: fy }, ...sides].filter(c => inBounds(c.x, c.y));
   }
 
-  // ---- Kartu & dek ----
+  // ---- Kartu & dek (per tim: 15 arah, 5 sentuh/hindar, 5 bintang, 5 stamina = 30) ----
   function newCard(obj) { uidCounter++; return Object.assign({ uid: uidCounter }, obj); }
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -281,37 +352,19 @@
     }
     return arr;
   }
-  // 27 kartu gerak + 5 kartu sentuh/menghindar + 5 kartu spesial per tim
   function buildDeck(side) {
     const cards = [];
-    for (const dir of DIR_LIST) {
-      for (let n = 1; n <= 3; n++) {
-        for (let c = 0; c < 3; c++) cards.push(newCard({ kind: 'move', dir, n }));
-      }
-    }
+    for (const dir of DIR_LIST) for (let c = 0; c < 5; c++) cards.push(newCard({ kind: 'move', dir }));
     for (let i = 0; i < 5; i++) cards.push(newCard(side === 'attacker' ? { kind: 'evade' } : { kind: 'touch' }));
-    for (let i = 1; i <= 5; i++) cards.push(newCard({ kind: 'special', id: i }));
+    for (let i = 1; i <= 5; i++) cards.push(newCard({ kind: 'star', id: i }));
+    for (let v = 1; v <= 5; v++) cards.push(newCard({ kind: 'stamina', value: v }));
     return { deck: shuffle(cards), hand: [], discard: [] };
   }
   function drawToFull(side) {
     const P = S.decks[side];
     while (P.hand.length < HAND_SIZE) {
-      if (P.deck.length === 0) {
-        if (P.discard.length === 0) break;
-        P.deck = shuffle(P.discard);
-        P.discard = [];
-      }
-      P.hand.push(P.deck.pop());
+      if (!drawOne(side)) break;
     }
-  }
-  // Kartu gerak/sentuh/menghindar masuk buangan setelah dipakai. Kartu spesial kembali ke dek (lihat useSpecial).
-  function consumeCard(side, card) {
-    const P = S.decks[side];
-    const i = P.hand.indexOf(card);
-    if (i < 0) return;
-    P.hand.splice(i, 1);
-    P.discard.push(card);
-    drawToFull(side);
   }
   // Ambil 1 kartu dari dek (kocok buangan jika dek habis).
   function drawOne(side) {
@@ -331,11 +384,35 @@
     S.drew = true;
     if (S.decks[side].hand.length <= HAND_SIZE) drawOne(side);
   }
+  // Kartu gerak/sentuh/hindar/stamina masuk buangan. Kartu bintang kembali ke dek.
+  function consumeCard(side, card) {
+    const P = S.decks[side];
+    const i = P.hand.indexOf(card);
+    if (i < 0) return;
+    P.hand.splice(i, 1);
+    if (card.kind === 'star') { P.deck.push(card); shuffle(P.deck); }
+    else P.discard.push(card);
+    drawToFull(side);
+  }
+  function cardCost(card) {
+    if (card.kind === 'move') return S.steps;
+    if (card.kind === 'touch' || card.kind === 'evade') return TOUCH_COST;
+    if (card.kind === 'star') return STAR_COST;
+    return 0;
+  }
   function cardLabel(c) {
-    if (c.kind === 'move') return `${DIR_NAME[c.dir]} ${c.n}`;
+    if (c.kind === 'move') return `${DIR_NAME[c.dir]}`;
     if (c.kind === 'touch') return 'Sentuh';
-    if (c.kind === 'evade') return 'Menghindar';
-    return `Spesial #${c.id}`;
+    if (c.kind === 'evade') return 'Hindar';
+    if (c.kind === 'star') return 'Bintang';
+    return `Stamina ±${c.value}`;
+  }
+  function cardArt(c) {
+    if (c.kind === 'move') return DIR_ICON[c.dir];
+    if (c.kind === 'touch') return '✋';
+    if (c.kind === 'evade') return '↯';
+    if (c.kind === 'star') return '★';
+    return '±' + c.value;
   }
 
   // ---- Babak ----
@@ -345,11 +422,14 @@
     S.turn = 'attacker';
     S.activeId = null;
     S.activeCard = null;
+    S.steps = 1;
     S.pending = null;
+    S.postMove = null;
     S.drew = false;
     S.guards = [];
     S.attackers = [];
     attCounter = 0;
+    guardCounter = 0;
     S.decks.attacker = buildDeck('attacker');
     S.decks.guard = buildDeck('guard');
     drawToFull('attacker');
@@ -394,40 +474,53 @@
     S.activeId = null;
     S.activeCard = null;
     S.pending = null;
+    S.postMove = null;
     S.msg = `${teamName(S.winner)} mencapai ${S.scores[S.winner]} poin dan menang!`;
   }
 
   function roundOver(text) {
     S.phase = 'over';
     S.pending = null;
+    S.postMove = null;
     S.activeId = null;
     S.activeCard = null;
     S.msg = text;
   }
 
+  // Pergantian giliran: karakter tim yang mulai bergerak mendapat +1 stamina.
   function endTurn(text) {
     S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
     S.activeId = null;
     S.activeCard = null;
+    S.steps = 1;
+    S.postMove = null;
     S.drew = false;
     S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
-    S.msg = `${text ? text + ' ' : ''}Giliran ${turnName()}.`;
+    const pieces = S.turn === 'attacker' ? S.attackers : S.guards;
+    pieces.forEach(p => { p.stamina += 1; });
+    S.msg = `${text ? text + ' ' : ''}Giliran ${turnName()}. Stamina +1 untuk karakter tim ini.`;
   }
 
-  // ---- Penjaga: tanda sudah bergerak ----
-  function markGuardMoved(gg) {
-    S.guards.forEach(q => { q.moved = (q === gg); });
+  // Setelah kartu gerak: jika bisa, tahan giliran agar bisa memakai bintang.
+  function afterMove(piece, text) {
+    const hand = S.decks[S.turn].hand;
+    if (piece.stamina >= STAR_COST && hand.some(c => c.kind === 'star')) {
+      S.postMove = piece.id;
+      S.activeCard = null;
+      S.msg = `${text} Pakai bintang (5 stamina) atau tekan Akhiri Giliran.`;
+      return;
+    }
+    endTurn(text);
   }
-  function canSelectGuard(g) {
-    return true;
-  }
-  // Tidak ada pembatasan urutan pemain.
-  function canSelectAttacker(a) {
-    return true;
-  }
+
+  // ---- Penjaga: aturan urutan dan hadap ----
+  function canSelectGuard(g) { return true; }
+  // Penyerang: tidak ada pembatasan urutan pemain.
+  function canSelectAttacker(a) { return true; }
 
   // ---- Simulasi gerak (kartu) ----
-  // Penyerang: tiap kotak non-garis memakai 1 angka; garis batas tidak dihitung; dinding memantulkan arah.
+  // Penyerang: tiap kotak non-garis memakai 1 kotak jarak; garis batas tidak dihitung; dinding memantulkan arah tanpa biaya.
+  // Penyerang tidak bisa menabrak penjaga (kecuali lewat efek karakter, belum aktif).
   function simAttacker(a, sdx, sdy, n) {
     let x = a.x, y = a.y, dx = sdx, dy = sdy, rem = n;
     const path = [];
@@ -448,10 +541,10 @@
     return { path, end: { x, y }, scored: false };
   }
 
-  // Penjaga: lurus sesuai garisnya, memakai 1 angka per kotak; dinding memantulkan arah.
-  // Tidak boleh melewati kotak yang sudah dilewati, kecuali:
+  // Penjaga: lurus sesuai garisnya, memakai 1 kotak per langkah; dinding memantulkan arah tanpa biaya.
+  // Tidak boleh melewati kotak yang sudah dilewati dalam satu giliran, kecuali:
   // - penjaga baris yang berada di kotak sebelah dinding (kolom 2 atau 12);
-  // - penjaga kolom yang sudah menyentuh garis antar baris (persimpangan) di giliran ini.
+  // - penjaga kolom yang sudah menyentuh garis antar baris di giliran ini.
   function canRevisit(g, x, flag) {
     if (g.type === 'h') return x === 1 || x === COLS - 2;
     return flag;
@@ -464,7 +557,6 @@
     let guard = 0;
     while (rem > 0 && guard++ < 80) {
       const nx = x + dx, ny = y + dy;
-      // Pantulan: arah dibalik, angka kartu tidak berkurang.
       if (isWallX(nx)) { dx = -dx; continue; }
       if (ny < 0 || ny >= ROWS) { dy = -dy; continue; }
       if (occupiedBy(nx, ny, g.id)) return null;
@@ -482,22 +574,25 @@
     return { path, end: { x, y }, flag };
   }
 
+  // Target gerak untuk kartu arah dengan jumlah kotak = S.steps.
   function attackerTargets(a, card) {
     const map = new Map();
+    if (card.kind !== 'move' || a.stamina < S.steps) return map;
     for (const [dx, dy] of SIGNS[card.dir]) {
-      const r = simAttacker(a, dx, dy, card.n);
+      const r = simAttacker(a, dx, dy, S.steps);
       if (r && !map.has(k(r.end.x, r.end.y))) map.set(k(r.end.x, r.end.y), r);
     }
     return map;
   }
   function guardTargets(g, card) {
     const map = new Map();
+    if (card.kind !== 'move' || g.stamina < S.steps) return map;
     if (card.dir !== 'cross') {
       if (g.type === 'h' && card.dir !== 'horizontal') return map;
       if (g.type === 'v' && card.dir !== 'vertical') return map;
     }
     for (const [dx, dy] of (card.dir === 'cross' ? SIGNS.ortho : SIGNS[card.dir])) {
-      const r = simGuard(g, dx, dy, card.n);
+      const r = simGuard(g, dx, dy, S.steps);
       if (r && !map.has(k(r.end.x, r.end.y))) map.set(k(r.end.x, r.end.y), r);
     }
     return map;
@@ -515,11 +610,12 @@
   }
 
   function placeAttacker(x, y) {
+    if (!isBrown(x, y)) return 'Penyerang hanya boleh di baris coklat (bukan dinding).';
     if (S.attackers.length >= 5) return 'Penyerang sudah 5.';
-    if (!isBrown(x, y)) return 'Penyerang hanya boleh ditempatkan di kotak coklat.';
     if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
     attCounter++;
-    S.attackers.push({ id: 'A' + attCounter, x, y, moved: false });
+    const char = ROSTER.attacker[S.attackers.length];
+    S.attackers.push({ id: 'A' + attCounter, char, x, y, stamina: char.stamina });
     return '';
   }
 
@@ -527,14 +623,15 @@
     if (S.attackers.length < 5) return 'Penyerang pasang dulu (5 penyerang).';
     if (isWallX(x)) return 'Dinding tidak bisa diisi.';
     if (occupiedBy(x, y)) return 'Kotak sudah terisi.';
+    const char = ROSTER.guard[S.guards.length];
     if (H_LANES.includes(y)) {
       if (S.guards.some(g => g.type === 'h' && g.y === y)) return 'Batas baris ini sudah ada penjaga.';
-      S.guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), type: 'h', x, y, facing: 'down', visited: null, touchedH: false, moved: false });
+      S.guards.push({ id: 'H' + (H_LANES.indexOf(y) + 1), char, type: 'h', x, y, facing: 'down', visited: null, touchedH: false, stamina: char.stamina });
       return '';
     }
     if (x === CENTER_X) {
       if (vCount() >= 1) return 'Penjaga kolom sudah ada.';
-      S.guards.push({ id: 'V1', type: 'v', x, y, facing: 'right', visited: null, touchedH: false, moved: false });
+      S.guards.push({ id: 'V1', char, type: 'v', x, y, facing: 'right', visited: null, touchedH: false, stamina: char.stamina });
       return '';
     }
     return 'Penjaga hanya boleh di garis batas (baris atau kolom tengah).';
@@ -544,7 +641,7 @@
     if (S.attackers.length === 5 && S.guards.length === 5) {
       S.phase = 'play';
       S.turn = 'attacker';
-      S.msg = `Pemasangan selesai. Giliran ${turnName()}: pilih kartu gerak, pilih penyerang, lalu klik kotak tujuan.`;
+      S.msg = `Pemasangan selesai. Giliran ${turnName()}: pilih karakter, ambil kartu, lalu mainkan kartu.`;
     }
   }
 
@@ -564,33 +661,36 @@
   function finishAttackerMove(act, res, card) {
     act.x = res.end.x;
     act.y = res.end.y;
-    act.moved = true;
+    act.stamina -= S.steps;
     consumeCard('attacker', card);
     if (res.scored) {
       S.attackers = S.attackers.filter(q => q !== act);
       S.scores[S.attTeam] += 1;
       if (S.scores[S.attTeam] >= WIN_SCORE) return gameWon();
       if (S.attackers.length === 0) return roundOver('Semua penyerang sudah mencapai finish. Babak selesai.');
-      return endTurn(`${act.id} mencapai finish: +1 poin untuk ${teamName(S.attTeam)}.`);
+      return endTurn(`${act.char.name} mencapai finish: +1 poin untuk ${teamName(S.attTeam)}.`);
     }
-    return endTurn(`Penyerang ${act.id} bergerak ${cardLabel(card)}.`);
+    return afterMove(act, `${act.char.name} bergerak ${cardLabel(card)} ${S.steps} kotak.`);
   }
 
   function declareTouch(g, a, card) {
+    g.stamina -= TOUCH_COST;
     consumeCard('guard', card);
-    markGuardMoved(g);
     const hasEvade = S.decks.attacker.hand.some(c => c.kind === 'evade');
-    if (!hasEvade) {
-      return roundOver(`Penjaga ${g.id} (${teamName(otherTeam(S.attTeam))}) menyentuh penyerang ${a.id}. Babak selesai.`);
+    if (!hasEvade || a.stamina < TOUCH_COST) {
+      return roundOver(`Penjaga ${g.char.name} (${teamName(otherTeam(S.attTeam))}) menyentuh ${a.char.name}. Babak selesai.`);
     }
     S.pending = { g, a };
-    S.msg = `Penjaga ${g.id} menyentuh ${a.id}. Penyerang: pakai Hindar (kartu menghindar) atau Terima Sentuhan.`;
+    S.msg = `Penjaga ${g.char.name} menyentuh ${a.char.name}. Penyerang: Hindar (3 stamina) atau Terima Sentuhan.`;
   }
 
   function evade() {
     if (!S.pending) return;
+    const { a } = S.pending;
     const card = S.decks.attacker.hand.find(c => c.kind === 'evade');
     if (!card) { S.msg = 'Tidak punya kartu menghindar.'; return; }
+    if (a.stamina < TOUCH_COST) { S.msg = 'Stamina tidak cukup untuk menghindar.'; return; }
+    a.stamina -= TOUCH_COST;
     consumeCard('attacker', card);
     S.pending = null;
     endTurn('Sentuhan dihindari.');
@@ -599,19 +699,16 @@
   function acceptTouch() {
     if (!S.pending) return;
     const { g, a } = S.pending;
-    roundOver(`Penjaga ${g.id} menyentuh ${a.id}. Babak selesai.`);
+    roundOver(`Penjaga ${g.char.name} menyentuh ${a.char.name}. Babak selesai.`);
   }
 
-  // Kartu spesial: dikembalikan ke dek (bisa dipakai lagi). Efek belum ditentukan.
-  function useSpecial(card) {
-    if (!S.activeId) { S.msg = 'Pilih pemain dulu, lalu kartu spesial.'; return; }
-    const P = S.decks[S.turn];
-    const i = P.hand.indexOf(card);
-    if (i < 0) return;
-    P.hand.splice(i, 1);
-    P.deck.push(card);
-    shuffle(P.deck);
-    endTurn(`Kartu spesial #${card.id} dipakai dan kembali ke dek (efek belum ditentukan).`);
+  // Kartu bintang: mengaktifkan efek karakter (belum aktif di preview). Kembali ke dek, pakai 5 stamina.
+  function useStar(card) {
+    const piece = getPiece(S.postMove);
+    if (!piece) return;
+    piece.stamina -= STAR_COST;
+    consumeCard(S.turn, card);
+    endTurn(`${piece.char.name} memakai bintang (efek ${piece.char.name} belum aktif di preview).`);
   }
 
   function selectCard(card) {
@@ -622,26 +719,53 @@
       return;
     }
     if (S.phase !== 'play') return;
-    if (card.kind === 'special') return useSpecial(card);
-    if (S.turn === 'attacker' && card.kind !== 'move') { S.msg = 'Penyerang hanya bisa memakai kartu gerak (atau menghindar saat diserang).'; return; }
-    if (S.turn === 'guard' && card.kind === 'evade') { S.msg = 'Kartu menghindar hanya dipakai penyerang saat diserang.'; return; }
+    if (S.postMove) {
+      if (card.kind === 'star') return useStar(card);
+      S.msg = 'Setelah bergerak hanya bintang yang bisa dipakai. Tekan Akhiri Giliran untuk lanjut.';
+      return;
+    }
+    if (card.kind === 'evade') { S.msg = 'Kartu menghindar hanya dipakai penyerang saat diserang.'; return; }
+    if (card.kind === 'touch' && S.turn !== 'guard') { S.msg = 'Kartu sentuh hanya dipakai penjaga.'; return; }
+    if (card.kind === 'star') { S.msg = 'Kartu bintang dipakai setelah kartu gerak.'; return; }
+    if (!S.activeId) { S.msg = 'Pilih karakter dulu.'; return; }
+    if (card.kind === 'stamina') {
+      // Kartu stamina: pilih karakter tujuan di papan (tim sendiri +, lawan −).
+      S.activeCard = S.activeCard === card ? null : card;
+      S.msg = S.activeCard ? `Kartu ${cardLabel(card)}: klik karakter tujuan (tim sendiri +, lawan −).` : 'Kartu dibatalkan.';
+      return;
+    }
+    if (card.kind === 'move') {
+      const piece = getPiece(S.activeId);
+      if (piece && piece.stamina < S.steps) { S.msg = `Stamina ${piece.char.name} tidak cukup untuk ${S.steps} kotak.`; }
+    }
     S.activeCard = S.activeCard === card ? null : card;
-    S.msg = S.activeCard ? `Kartu ${cardLabel(card)} dipilih. Pilih pemain, lalu klik tujuan.` : 'Kartu dibatalkan.';
+    S.msg = S.activeCard ? `Kartu ${cardLabel(card)} dipilih. Pilih karakter, lalu klik tujuan.` : 'Kartu dibatalkan.';
+  }
+
+  // Kartu stamina ke karakter tujuan.
+  function applyStaminaCard(target) {
+    const card = S.activeCard;
+    const own = S.turn === 'attacker' ? S.attackers : S.guards;
+    const delta = card.value * (own.includes(target) ? 1 : -1);
+    target.stamina = Math.max(0, target.stamina + delta);
+    consumeCard(S.turn, card);
+    endTurn(`${target.char.name} ${delta > 0 ? '+' : ''}${delta} stamina.`);
   }
 
   function attackerClick(x, y) {
     const a = attAt(x, y);
     if (a) {
       if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu pemain per giliran.';
-      else if (S.activeId === a.id) S.msg = `Penyerang ${a.id} dipilih.`;
-      else if (canSelectAttacker(a)) { S.activeId = a.id; beginPlayerTurn('attacker'); S.msg = `Penyerang ${a.id} dipilih. Pilih kartu gerak, lalu klik tujuan.`; }
+      else if (S.activeId === a.id) S.msg = `${a.char.name} dipilih.`;
+      else if (canSelectAttacker(a)) { S.activeId = a.id; beginPlayerTurn('attacker'); S.msg = `${a.char.name} dipilih (stamina ${a.stamina}). Pilih kartu, lalu klik tujuan.`; }
       return;
     }
     const act = getAtt(S.activeId);
     if (!act) { S.msg = 'Pilih penyerang dulu.'; return; }
-    if (!S.activeCard) { S.msg = 'Pilih kartu gerak dulu.'; return; }
+    if (!S.activeCard) { S.msg = 'Pilih kartu dulu.'; return; }
+    if (S.activeCard.kind === 'stamina') return;
     const res = attackerTargets(act, S.activeCard).get(k(x, y));
-    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu ini.'; return; }
+    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu dan stamina ini.'; return; }
     finishAttackerMove(act, res, S.activeCard);
   }
 
@@ -649,12 +773,12 @@
     const g = guardAt(x, y), a = attAt(x, y);
     if (g) {
       if (S.activeId && S.activeId !== g.id) S.msg = 'Hanya satu pemain per giliran.';
-      else if (S.activeId === g.id) S.msg = `Penjaga ${g.id} dipilih.`;
+      else if (S.activeId === g.id) S.msg = `${g.char.name} dipilih.`;
       else if (canSelectGuard(g)) {
         S.activeId = g.id;
         beginPlayerTurn('guard');
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
-        S.msg = `Penjaga ${g.id} dipilih. Pilih kartu, lalu klik tujuan.`;
+        S.msg = `${g.char.name} dipilih (stamina ${g.stamina}). Pilih kartu, lalu klik tujuan.`;
       }
       return;
     }
@@ -664,24 +788,33 @@
     const card = S.activeCard;
     if (card.kind === 'touch') {
       if (!a) { S.msg = 'Pilih penyerang di area merah untuk disentuh.'; return; }
+      if (gg.stamina < TOUCH_COST) { S.msg = `Stamina ${gg.char.name} kurang untuk menyentuh (butuh ${TOUCH_COST}).`; return; }
       if (!threatCells(gg).some(c => c.x === a.x && c.y === a.y)) { S.msg = 'Penyerang itu tidak ada di area merah penjaga.'; return; }
       return declareTouch(gg, a, card);
     }
+    if (card.kind === 'stamina') return;
     if (a) { S.msg = 'Kotak itu ditempati penyerang.'; return; }
     const res = guardTargets(gg, card).get(k(x, y));
-    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu ini.'; return; }
-    markGuardMoved(gg);
+    if (!res) { S.msg = 'Kotak itu tidak bisa dicapai dengan kartu dan stamina ini.'; return; }
     if (!gg.visited) gg.visited = new Set([k(gg.x, gg.y)]);
     res.path.forEach(kk => gg.visited.add(kk));
     gg.touchedH = res.flag;
     gg.x = res.end.x;
     gg.y = res.end.y;
+    gg.stamina -= S.steps;
     consumeCard('guard', card);
-    endTurn(`Penjaga ${gg.id} bergerak ${cardLabel(card)}.`);
+    afterMove(gg, `${gg.char.name} bergerak ${cardLabel(card)} ${S.steps} kotak.`);
   }
 
   function onPlayCell(x, y) {
     if (S.pending) { S.msg = 'Pilih Hindar atau Terima Sentuhan dulu.'; return; }
+    if (S.postMove) { S.msg = 'Setelah bergerak: pakai bintang atau tekan Akhiri Giliran.'; return; }
+    // Kartu stamina: target karakter di papan.
+    if (S.activeCard && S.activeCard.kind === 'stamina') {
+      const target = S.turn === 'attacker' ? (attAt(x, y) || guardAt(x, y)) : (guardAt(x, y) || attAt(x, y));
+      if (!target) { S.msg = 'Pilih karakter di papan sebagai tujuan.'; return; }
+      return applyStaminaCard(target);
+    }
     if (S.turn === 'attacker') return attackerClick(x, y);
     return guardClick(x, y);
   }
@@ -694,18 +827,17 @@
   }
 
   function turnFace() {
-    if (S.phase !== 'play' || S.pending || S.turn !== 'guard') return;
+    if (S.phase !== 'play' || S.pending || S.postMove || S.turn !== 'guard') return;
     const gg = getGuard(S.activeId);
     if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
     if (S.activeCard) { S.msg = 'Batalkan kartu dulu.'; return render(); }
     gg.facing = gg.facing === 'left' ? 'right' : 'left';
-    markGuardMoved(gg);
-    endTurn(`Penjaga ${gg.id} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
+    endTurn(`${gg.char.name} berganti hadap ke ${gg.facing === 'left' ? 'kiri' : 'kanan'}.`);
     render();
   }
 
   function skipTurn() {
-    if (S.phase !== 'play' || S.pending) return;
+    if (S.phase !== 'play' || S.pending || S.postMove) return;
     endTurn('Giliran dilewati.');
     render();
   }
@@ -726,7 +858,12 @@
 
   function activeTargets() {
     const out = { moves: new Map(), touches: new Set() };
-    if (S.phase !== 'play' || S.pending || !S.activeCard) return out;
+    if (S.phase !== 'play' || S.pending || S.postMove || !S.activeCard) return out;
+    if (S.activeCard.kind === 'stamina') {
+      const all = S.turn === 'attacker' ? [...S.attackers, ...S.guards] : [...S.guards, ...S.attackers];
+      all.forEach(p => out.touches.add(k(p.x, p.y)));
+      return out;
+    }
     if (S.turn === 'attacker') {
       const a = getAtt(S.activeId);
       if (a && S.activeCard.kind === 'move') out.moves = attackerTargets(a, S.activeCard);
@@ -738,6 +875,22 @@
       }
     }
     return out;
+  }
+
+  function renderSteps() {
+    while (stepsEl.lastChild) stepsEl.removeChild(stepsEl.lastChild);
+    const piece = S.phase === 'play' ? getPiece(S.activeId) : null;
+    const label = document.createElement('span');
+    label.textContent = 'Jumlah kotak (stamina dibayar): ';
+    stepsEl.appendChild(label);
+    for (let n = 1; n <= MAX_STEPS; n++) {
+      const b = document.createElement('button');
+      b.textContent = String(n);
+      b.className = n === S.steps ? 'sel' : '';
+      b.disabled = S.phase !== 'play' || S.pending || S.postMove || (piece && piece.stamina < n) || !piece;
+      b.addEventListener('click', () => { S.steps = n; render(); });
+      stepsEl.appendChild(b);
+    }
   }
 
   function renderHand() {
@@ -752,11 +905,35 @@
     P.hand.forEach(card => {
       const b = document.createElement('button');
       b.className = 'card ' + card.kind + (S.activeCard === card ? ' selected' : '');
-      b.textContent = cardLabel(card);
-      b.disabled = S.phase === 'over' || (side !== S.turn && !S.pending);
+      const cost = card.kind === 'stamina' ? '0' : String(cardCost(card));
+      b.innerHTML = '';
+      const c1 = document.createElement('div'); c1.className = 'cost'; c1.textContent = cost;
+      const c2 = document.createElement('div'); c2.className = 'art'; c2.textContent = cardArt(card);
+      const c3 = document.createElement('div'); c3.className = 'name'; c3.textContent = cardLabel(card);
+      const c4 = document.createElement('div'); c4.className = 'desc';
+      c4.textContent = card.kind === 'star' ? 'Efek karakter' : card.kind === 'stamina' ? 'Pilih karakter' : card.kind === 'move' ? `Bayar ${S.steps}` : `Bayar ${cardCost(card)}`;
+      b.append(c1, c2, c3, c4);
+      const allowed = (S.pending && card.kind === 'evade')
+        || (!S.pending && S.phase === 'play' && ((S.turn === 'attacker' && (card.kind === 'move' || card.kind === 'stamina' || card.kind === 'star'))
+          || (S.turn === 'guard' && card.kind !== 'evade')));
+      b.disabled = S.phase === 'over' || !allowed || (side !== S.turn && !S.pending);
       b.addEventListener('click', () => { selectCard(card); render(); });
       handEl.appendChild(b);
     });
+  }
+
+  function renderCharPanel() {
+    const p = getPiece(S.activeId);
+    if (!p) { charEl.textContent = ''; return; }
+    while (charEl.lastChild) charEl.removeChild(charEl.lastChild);
+    const ini = document.createElement('div'); ini.className = 'initial'; ini.textContent = p.char.name[0];
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const pct = Math.min(100, Math.round(p.stamina / 10 * 100));
+    const role = p.char.role || (p.type ? 'penjaga' : 'penyerang');
+    meta.innerHTML = `<b>${p.char.name}</b> · ${p.char.tribe} · ${p.char.rarity} · tipe ${p.type ? 'penjaga' : 'penyerang'}<br>` +
+      `Efek: ${p.char.effect}<br>Stamina ${p.stamina}` +
+      `<div class="bar"><div style="width:${pct}%"></div></div>`;
+    charEl.append(ini, meta);
   }
 
   function render() {
@@ -764,7 +941,7 @@
     S.guards.forEach(g => threatCells(g).forEach(c => threat.add(k(c.x, c.y))));
     const targets = activeTargets();
     const pendingKey = S.pending ? k(S.pending.a.x, S.pending.a.y) : null;
-    const activePiece = S.turn === 'attacker' ? getAtt(S.activeId) : getGuard(S.activeId);
+    const activePiece = getPiece(S.activeId);
     const activeKey = activePiece ? k(activePiece.x, activePiece.y) : null;
 
     for (let y = 0; y < ROWS; y++) {
@@ -781,16 +958,22 @@
         el.className = cls;
 
         while (el.lastChild) el.removeChild(el.lastChild);
-        if (attAt(x, y)) {
+        const a = attAt(x, y);
+        if (a) {
           const d = document.createElement('div');
           d.className = 'piece attacker';
+          d.textContent = a.char.name[0];
+          const s = document.createElement('span'); s.className = 'sta'; s.textContent = a.stamina;
+          d.appendChild(s);
           el.appendChild(d);
         }
         const g = guardAt(x, y);
         if (g) {
           const d = document.createElement('div');
           d.className = 'piece guard ' + (g.type === 'h' ? 'g-h' : 'g-v');
-          d.textContent = g.type === 'h' ? '▼' : (g.facing === 'left' ? '◀' : '▶');
+          d.textContent = g.char.name[0] + (g.type === 'h' ? '' : (g.facing === 'left' ? ' ◀' : ' ▶'));
+          const s = document.createElement('span'); s.className = 'sta'; s.textContent = g.stamina;
+          d.appendChild(s);
           el.appendChild(d);
         }
       }
@@ -801,6 +984,8 @@
     const turnText = S.phase === 'play' ? ` · Giliran: ${turnName()}` : '';
     hudEl.textContent = `Babak ${S.round}/${TOTAL_ROUNDS} · ${phaseName} · Penyerang: ${teamName(S.attTeam)}${turnText} · ${scoreText}`;
     statusEl.textContent = S.msg;
+    renderSteps();
+    renderCharPanel();
     renderHand();
     updateButtons();
   }
@@ -812,11 +997,13 @@
       b.disabled = !setup;
       b.classList.toggle('active', setup && b.dataset.tool === S.tool);
     });
-    btnSkip.disabled = !(play && !S.pending);
+    btnSkip.disabled = !(play && !S.pending && !S.postMove);
     const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
-    btnFace.disabled = !(play && !S.pending && S.turn === 'guard' && gg && gg.type === 'v' && !S.activeCard);
+    btnFace.disabled = !(play && !S.pending && !S.postMove && S.turn === 'guard' && gg && gg.type === 'v' && !S.activeCard);
+    btnEnd.disabled = !(play && S.postMove && !S.pending);
     const attackerHasEvade = S.decks.attacker && S.decks.attacker.hand.some(c => c.kind === 'evade');
-    btnEvade.disabled = !(S.pending && attackerHasEvade);
+    const pa = S.pending ? S.pending.a : null;
+    btnEvade.disabled = !(S.pending && attackerHasEvade && pa && pa.stamina >= TOUCH_COST);
     btnAccept.disabled = !S.pending;
     const finished = S.phase === 'over' || S.phase === 'won' || S.phase === 'ended';
     btnNext.disabled = !finished;
@@ -827,7 +1014,7 @@
 
   function showHover(x, y) {
     const g = guardAt(x, y), a = attAt(x, y);
-    const occ = g ? ` — penjaga ${g.id}` : a ? ` — penyerang ${a.id}` : '';
+    const occ = g ? ` — penjaga ${g.char.name} (stamina ${g.stamina})` : a ? ` — penyerang ${a.char.name} (stamina ${a.stamina})` : '';
     infoEl.textContent = `Kotak (kolom ${x + 1}, baris ${y + 1}) · ${ZONE_NAME[zoneOf(x, y)]}${occ}`;
   }
 
@@ -839,8 +1026,9 @@
       render();
     });
   });
-  btnSkip.addEventListener('click', skipTurn);
+  btnSkip.addEventListener('click', () => { skipTurn(); });
   btnFace.addEventListener('click', turnFace);
+  btnEnd.addEventListener('click', () => { if (S.postMove) endTurn('Giliran diakhiri.'); render(); });
   btnEvade.addEventListener('click', () => { evade(); render(); });
   btnAccept.addEventListener('click', () => { acceptTouch(); render(); });
   btnNext.addEventListener('click', () => { nextRound(); render(); });

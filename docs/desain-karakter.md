@@ -108,3 +108,7 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 ### Keputusan terbaru
 - Nama karakter Papua: Wanggai.
 - Kartu stamina memilih karakter tujuan saat dimainkan.
+
+## Status implementasi preview
+- Diterapkan: deck 30 kartu per tim (kartu arah tanpa angka, sentuh/hindar, bintang, stamina ±1 sampai ±5), stamina per karakter (+1 saat giliran tim dimulai), biaya kartu (arah = jumlah kotak, sentuh/hindar 3, bintang 5, stamina 0), kartu stamina memilih karakter tujuan, bintang setelah gerak lalu kembali ke dek, penyerang tidak menabrak penjaga, dan 10 karakter awal dengan nama.
+- Belum aktif: efek karakter (bintang belum mengubah apa pun), kelangkaan dan level, peti, dan tampilan kartu karakter seperti Clash Royale. Kartu karakter saat ini hanya panel informasi.
