@@ -174,6 +174,7 @@
   <button id="btn-skip">Lewati Giliran</button>
   <button id="btn-face">Putar Hadap</button>
   <button id="btn-end" class="star">Akhiri Giliran</button>
+  <button id="btn-discard">Buang kartu terpilih</button>
   <button id="btn-evade" class="evade">Hindar (kartu menghindar)</button>
   <button id="btn-accept" class="accept">Terima Sentuhan</button>
   <button id="btn-next">Babak Berikutnya</button>
@@ -214,7 +215,7 @@
   const BELOW_Y = 21;     // baris coklat, tempat penyerang dipasang
   const WIN_SCORE = 5;
   const TOTAL_ROUNDS = 6; // tiap tim 3 babak sebagai penyerang
-  const HAND_SIZE = 5;
+  const HAND_SIZE = 3;     // tangan awal dan batas maksimal tangan di awal giliran
   const TOUCH_COST = 3;
   const STAR_COST = 5;
   const MAX_STEPS = 5;
@@ -280,6 +281,7 @@
   const btnSkip = document.getElementById('btn-skip');
   const btnFace = document.getElementById('btn-face');
   const btnEnd = document.getElementById('btn-end');
+  const btnDiscard = document.getElementById('btn-discard');
   const btnEvade = document.getElementById('btn-evade');
   const btnAccept = document.getElementById('btn-accept');
   const btnNext = document.getElementById('btn-next');
@@ -301,7 +303,8 @@
     steps: 1,              // jumlah kotak = stamina yang dibayar (kartu arah)
     pending: null,         // { g, a } saat menunggu jawaban penyerang
     postMove: null,        // id pemain yang sudah bergerak; boleh pakai bintang atau akhiri giliran
-    drew: false,           // sudah ambil kartu di giliran ini
+    drew: false,           // sudah ambil kartu di awal giliran ini
+    played: false,         // sudah memainkan kartu di giliran ini
     guards: [],            // { id, char, type:'h'|'v', x, y, facing, visited, touchedH, stamina }
     attackers: [],         // { id, char, x, y, stamina }
     decks: { attacker: null, guard: null }, // { deck, hand, discard }
@@ -378,12 +381,6 @@
     P.hand.push(c);
     return c;
   }
-  // Saat pemain dipilih (sekali per giliran): ambil 1 kartu dari dek ke tangan.
-  function beginPlayerTurn(side) {
-    if (S.drew) return;
-    S.drew = true;
-    if (S.decks[side].hand.length <= HAND_SIZE) drawOne(side);
-  }
   // Kartu gerak/sentuh/hindar/stamina masuk buangan. Kartu bintang kembali ke dek.
   function consumeCard(side, card) {
     const P = S.decks[side];
@@ -392,7 +389,32 @@
     P.hand.splice(i, 1);
     if (card.kind === 'star') { P.deck.push(card); shuffle(P.deck); }
     else P.discard.push(card);
-    drawToFull(side);
+    if (side === S.turn) S.played = true;
+  }
+  // Ambil 0..n kartu di awal giliran, sampai tangan berjumlah HAND_SIZE (sekali per giliran).
+  function drawChoice(n) {
+    if (S.phase !== 'play' || S.pending || S.postMove) return;
+    if (S.drew || S.played) { S.msg = 'Kartu hanya bisa diambil di awal giliran.'; return; }
+    const P = S.decks[S.turn];
+    let got = 0;
+    while (got < n && P.hand.length < HAND_SIZE) {
+      if (!drawOne(S.turn)) break;
+      got++;
+    }
+    S.drew = true;
+    S.msg = `Mengambil ${got} kartu. Tangan ${P.hand.length}/${HAND_SIZE}. Pilih karakter, lalu kartu.`;
+  }
+  // Buang kartu yang sedang dipilih (tidak mengakhiri giliran).
+  function discardSelected() {
+    const card = S.activeCard;
+    if (!card) { S.msg = 'Pilih kartu di tangan dulu, lalu buang.'; return; }
+    const P = S.decks[S.turn];
+    const i = P.hand.indexOf(card);
+    if (i < 0) return;
+    P.hand.splice(i, 1);
+    P.discard.push(card);
+    S.activeCard = null;
+    S.msg = 'Kartu dibuang. Tangan ' + P.hand.length + '/' + HAND_SIZE + '.';
   }
   function cardCost(card) {
     if (card.kind === 'move') return S.steps;
@@ -426,6 +448,7 @@
     S.pending = null;
     S.postMove = null;
     S.drew = false;
+    S.played = false;
     S.guards = [];
     S.attackers = [];
     attCounter = 0;
@@ -495,6 +518,7 @@
     S.steps = 1;
     S.postMove = null;
     S.drew = false;
+    S.played = false;
     S.guards.forEach(g => { g.visited = null; g.touchedH = false; });
     const pieces = S.turn === 'attacker' ? S.attackers : S.guards;
     pieces.forEach(p => { p.stamina += 1; });
@@ -757,7 +781,7 @@
     if (a) {
       if (S.activeId && S.activeId !== a.id) S.msg = 'Hanya satu pemain per giliran.';
       else if (S.activeId === a.id) S.msg = `${a.char.name} dipilih.`;
-      else if (canSelectAttacker(a)) { S.activeId = a.id; beginPlayerTurn('attacker'); S.msg = `${a.char.name} dipilih (stamina ${a.stamina}). Pilih kartu, lalu klik tujuan.`; }
+      else if (canSelectAttacker(a)) { S.activeId = a.id; S.msg = `${a.char.name} dipilih (stamina ${a.stamina}). Pilih kartu, lalu klik tujuan.`; }
       return;
     }
     const act = getAtt(S.activeId);
@@ -776,7 +800,6 @@
       else if (S.activeId === g.id) S.msg = `${g.char.name} dipilih.`;
       else if (canSelectGuard(g)) {
         S.activeId = g.id;
-        beginPlayerTurn('guard');
         if (!g.visited) g.visited = new Set([k(g.x, g.y)]);
         S.msg = `${g.char.name} dipilih (stamina ${g.stamina}). Pilih kartu, lalu klik tujuan.`;
       }
@@ -883,6 +906,19 @@
     const label = document.createElement('span');
     label.textContent = 'Jumlah kotak (stamina dibayar): ';
     stepsEl.appendChild(label);
+    if (S.phase === 'play' && S.turn && !S.pending) {
+      const dl = document.createElement('span'); dl.textContent = '   Ambil kartu: ';
+      stepsEl.appendChild(dl);
+      const P = S.decks[S.turn];
+      for (let n = 0; n <= HAND_SIZE - P.hand.length; n++) {
+        const b = document.createElement('button');
+        b.textContent = String(n);
+        b.dataset.draw = String(n);
+        b.disabled = S.drew || S.played || S.postMove;
+        b.addEventListener('click', () => { drawChoice(n); render(); });
+        stepsEl.appendChild(b);
+      }
+    }
     for (let n = 1; n <= MAX_STEPS; n++) {
       const b = document.createElement('button');
       b.textContent = String(n);
@@ -901,7 +937,7 @@
     }
     const side = S.pending ? 'attacker' : S.turn;
     const P = S.decks[side];
-    handTitleEl.textContent = `Kartu ${side === 'attacker' ? 'Penyerang' : 'Penjaga'} (${teamName(side === 'attacker' ? S.attTeam : otherTeam(S.attTeam))}) · dek ${P.deck.length} · buangan ${P.discard.length}`;
+    handTitleEl.textContent = `Kartu ${side === 'attacker' ? 'Penyerang' : 'Penjaga'} (${teamName(side === 'attacker' ? S.attTeam : otherTeam(S.attTeam))}) · tangan ${P.hand.length}/${HAND_SIZE} · dek ${P.deck.length} · buangan ${P.discard.length}`;
     P.hand.forEach(card => {
       const b = document.createElement('button');
       b.className = 'card ' + card.kind + (S.activeCard === card ? ' selected' : '');
@@ -1001,6 +1037,7 @@
     const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
     btnFace.disabled = !(play && !S.pending && !S.postMove && S.turn === 'guard' && gg && gg.type === 'v' && !S.activeCard);
     btnEnd.disabled = !(play && S.postMove && !S.pending);
+    btnDiscard.disabled = !(play && S.activeCard && !S.pending && !S.postMove);
     const attackerHasEvade = S.decks.attacker && S.decks.attacker.hand.some(c => c.kind === 'evade');
     const pa = S.pending ? S.pending.a : null;
     btnEvade.disabled = !(S.pending && attackerHasEvade && pa && pa.stamina >= TOUCH_COST);
@@ -1028,6 +1065,7 @@
   });
   btnSkip.addEventListener('click', () => { skipTurn(); });
   btnFace.addEventListener('click', turnFace);
+  btnDiscard.addEventListener('click', () => { discardSelected(); render(); });
   btnEnd.addEventListener('click', () => { if (S.postMove) endTurn('Giliran diakhiri.'); render(); });
   btnEvade.addEventListener('click', () => { evade(); render(); });
   btnAccept.addEventListener('click', () => { acceptTouch(); render(); });

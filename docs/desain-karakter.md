@@ -115,3 +115,9 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 
 ### Kartu arah (keputusan terbaru)
 - Kartu normal membayar 1 stamina per gerakan (per kotak). Bisa bergerak sejumlah kotak sesuai stamina yang ditentukan pemain, dengan minimal 1 kotak dan maksimal stamina karakter.
+
+### Tangan (keputusan terbaru)
+- Tangan awal 3 kartu per tim.
+- Di awal giliran, pemain boleh mengambil 0 sampai (3 − jumlah kartu di tangan) kartu, sekali per giliran.
+- Kartu yang tidak dimainkan tetap di tangan. Tangan tidak diisi otomatis setelah kartu dimainkan.
+- Kartu di tangan boleh dibuang dengan tombol "Buang kartu terpilih" (tidak mengakhiri giliran).
