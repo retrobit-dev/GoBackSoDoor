@@ -95,12 +95,12 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
   - Kartu stamina: 0 stamina.
 - Sisa stamina tidak hilang.
 - Stamina bertambah 1 setiap pergantian giliran.
-- Angka jarak gerak ditentukan oleh stamina yang dipakai (belum final, lihat pertanyaan).
+- Kartu arah: jarak gerak = stamina yang dibayar (bayar N stamina untuk gerak N kotak). Biaya dasar kartu arah tetap 1 stamina sebagai harga minimum, sehingga jarak 1 = 1 stamina.
 
 ### Aturan tambahan
 - Penyerang tidak bisa menabrak penjaga, kecuali lewat efek karakter.
 - Kartu sentuh/hindar bisa dipakai kapan saja selama ada penjaga yang bisa menyentuh penyerang di area merah, atau penyerang bisa membalas dengan kartu hindar.
 
 ### Pertanyaan terbuka
-- Kartu arah: biaya 1 stamina per kartu, atau jarak sama dengan stamina yang dibayar?
-- Penambahan stamina per giliran: hanya karakter aktif, atau semua karakter tim?
+- Kartu arah: dijawab (bayar N untuk N kotak), lihat di atas.
+- Penambahan stamina per giliran: semua karakter tim (+1 setiap pergantian giliran).
