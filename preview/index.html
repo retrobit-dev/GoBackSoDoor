@@ -306,6 +306,7 @@
     postMove: null,        // id pemain yang sudah bergerak; boleh pakai bintang atau akhiri giliran
     drew: false,           // sudah ambil kartu di awal giliran ini
     played: false,         // sudah memainkan kartu di giliran ini
+    discarding: null,      // { side, text, need } saat harus membuang kartu sampai tangan 3 di akhir giliran
     guards: [],            // { id, char, type:'h'|'v', x, y, facing, visited, touchedH, stamina }
     attackers: [],         // { id, char, x, y, stamina }
     decks: { attacker: null, guard: null }, // { deck, hand, discard }
@@ -396,7 +397,7 @@
   }
   // Ambil 0..n kartu di awal giliran, sampai tangan berjumlah HAND_SIZE (sekali per giliran).
   function drawChoice(n) {
-    if (S.phase !== 'play' || S.pending || S.postMove) return;
+    if (S.phase !== 'play' || S.pending || S.postMove || S.discarding) return;
     if (S.drew || S.played) { S.msg = 'Kartu hanya bisa diambil di awal giliran.'; return; }
     const P = S.decks[S.turn];
     let got = 0;
@@ -407,8 +408,22 @@
     S.drew = true;
     S.msg = `Mengambil ${got} kartu. Tangan ${P.hand.length}/${HAND_SIZE}. Pilih karakter, lalu kartu.`;
   }
+  // Buang kartu wajib di akhir giliran; setelah cukup, giliran berpindah.
+  function discardCard(card) {
+    const d = S.discarding;
+    const P = S.decks[d.side];
+    const i = P.hand.indexOf(card);
+    if (i < 0) { S.msg = 'Pilih kartu di tangan untuk dibuang.'; return; }
+    P.hand.splice(i, 1);
+    P.discard.push(card);
+    S.activeCard = null;
+    d.need--;
+    if (d.need <= 0) { S.discarding = null; return endTurn(d.text); }
+    S.msg = `Buang ${d.need} kartu lagi.`;
+  }
   // Buang kartu yang sedang dipilih (tidak mengakhiri giliran).
   function discardSelected() {
+    if (S.discarding) { if (!S.activeCard) { S.msg = 'Pilih kartu dulu.'; return; } return discardCard(S.activeCard); }
     const card = S.activeCard;
     if (!card) { S.msg = 'Pilih kartu di tangan dulu, lalu buang.'; return; }
     const P = S.decks[S.turn];
@@ -454,6 +469,7 @@
     S.postMove = null;
     S.drew = false;
     S.played = false;
+    S.discarding = null;
     S.guards = [];
     S.attackers = [];
     attCounter = 0;
@@ -517,6 +533,16 @@
 
   // Pergantian giliran: karakter tim yang mulai bergerak mendapat +1 stamina.
   function endTurn(text) {
+    const owed = S.decks[S.turn].hand.length - HAND_SIZE;
+    if (!S.discarding && owed > 0) {
+      S.discarding = { side: S.turn, text, need: owed };
+      S.activeCard = null;
+      S.activeId = null;
+      S.postMove = null;
+      S.msg = `Akhir giliran: buang ${owed} kartu sampai tangan ${HAND_SIZE}. Klik kartu untuk dibuang.`;
+      return;
+    }
+    S.discarding = null;
     S.turn = S.turn === 'attacker' ? 'guard' : 'attacker';
     S.activeId = null;
     S.activeCard = null;
@@ -750,6 +776,7 @@
   }
 
   function selectCard(card) {
+    if (S.discarding) return discardCard(card);
     if (S.phase !== 'play' && S.phase !== 'over') return;
     if (S.pending) {
       if (card.kind === 'evade') return evade();
@@ -845,6 +872,7 @@
   }
 
   function onPlayCell(x, y) {
+    if (S.discarding) { S.msg = 'Buang kartu dulu sampai tangan 3.'; return; }
     if (S.pending) { S.msg = 'Pilih Hindar atau Terima Sentuhan dulu.'; return; }
     if (S.postMove) { S.msg = 'Setelah bergerak: pakai bintang atau tekan Akhiri Giliran.'; return; }
     // Kartu stamina: target karakter di papan.
@@ -865,7 +893,7 @@
   }
 
   function turnFace() {
-    if (S.phase !== 'play' || S.pending || S.postMove || S.turn !== 'guard') return;
+    if (S.phase !== 'play' || S.pending || S.postMove || S.discarding || S.turn !== 'guard') return;
     const gg = getGuard(S.activeId);
     if (!gg || gg.type !== 'v') { S.msg = 'Pilih penjaga kolom dulu.'; return render(); }
     if (S.activeCard) { S.msg = 'Batalkan kartu dulu.'; return render(); }
@@ -875,7 +903,7 @@
   }
 
   function skipTurn() {
-    if (S.phase !== 'play' || S.pending || S.postMove) return;
+    if (S.phase !== 'play' || S.pending || S.postMove || S.discarding) return;
     endTurn('Giliran dilewati.');
     render();
   }
@@ -964,7 +992,7 @@
       const c4 = document.createElement('div'); c4.className = 'desc';
       c4.textContent = card.kind === 'draw' ? 'Ambil kartu' : card.kind === 'star' ? 'Efek karakter' : card.kind === 'stamina' ? 'Pilih karakter' : card.kind === 'move' ? `Bayar ${S.steps}` : `Bayar ${cardCost(card)}`;
       b.append(c1, c2, c3, c4);
-      const allowed = (S.pending && card.kind === 'evade')
+      const allowed = !!S.discarding || (S.pending && card.kind === 'evade')
         || (!S.pending && S.phase === 'play' && ((S.turn === 'attacker' && (card.kind === 'move' || card.kind === 'stamina' || card.kind === 'star' || card.kind === 'draw'))
           || (S.turn === 'guard' && card.kind !== 'evade')));
       b.disabled = S.phase === 'over' || !allowed || (side !== S.turn && !S.pending);
@@ -1048,7 +1076,7 @@
       b.disabled = !setup;
       b.classList.toggle('active', setup && b.dataset.tool === S.tool);
     });
-    btnSkip.disabled = !(play && !S.pending && !S.postMove);
+    btnSkip.disabled = !(play && !S.pending && !S.postMove && !S.discarding);
     const gg = S.turn === 'guard' ? getGuard(S.activeId) : null;
     btnFace.disabled = !(play && !S.pending && !S.postMove && S.turn === 'guard' && gg && gg.type === 'v' && !S.activeCard);
     btnEnd.disabled = !(play && S.postMove && !S.pending);

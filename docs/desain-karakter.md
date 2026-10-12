@@ -127,3 +127,7 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 - +N: pemain mengambil N kartu dari tumpukan teratas deck.
 - Biaya 0 stamina. Dimainkan sebagai aksi giliran, jadi giliran berakhir setelahnya (asumsi, bisa diubah).
 - Kartu sisa tetap di tangan. Batas 3 hanya berlaku saat pengambilan di awal giliran.
+
+### Batas tangan di akhir giliran (keputusan terbaru)
+- Jika tangan lebih dari 3 kartu di akhir giliran, pemain wajib membuang kartu sampai tersisa 3. Pemain memilih kartu yang dibuang.
+- Giliran berpindah setelah kewajiban buang selesai.
