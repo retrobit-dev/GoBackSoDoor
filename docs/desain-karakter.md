@@ -112,3 +112,6 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 ## Status implementasi preview
 - Diterapkan: deck 30 kartu per tim (kartu arah tanpa angka, sentuh/hindar, bintang, stamina ±1 sampai ±5), stamina per karakter (+1 saat giliran tim dimulai), biaya kartu (arah = jumlah kotak, sentuh/hindar 3, bintang 5, stamina 0), kartu stamina memilih karakter tujuan, bintang setelah gerak lalu kembali ke dek, penyerang tidak menabrak penjaga, dan 10 karakter awal dengan nama.
 - Belum aktif: efek karakter (bintang belum mengubah apa pun), kelangkaan dan level, peti, dan tampilan kartu karakter seperti Clash Royale. Kartu karakter saat ini hanya panel informasi.
+
+### Kartu arah (keputusan terbaru)
+- Kartu normal membayar 1 stamina per gerakan (per kotak). Bisa bergerak sejumlah kotak sesuai stamina yang ditentukan pemain, dengan minimal 1 kotak dan maksimal stamina karakter.
