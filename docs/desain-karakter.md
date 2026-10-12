@@ -121,3 +121,9 @@ Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail bud
 - Di awal giliran, pemain boleh mengambil 0 sampai (3 − jumlah kartu di tangan) kartu, sekali per giliran.
 - Kartu yang tidak dimainkan tetap di tangan. Tangan tidak diisi otomatis setelah kartu dimainkan.
 - Kartu di tangan boleh dibuang dengan tombol "Buang kartu terpilih" (tidak mengakhiri giliran).
+
+### Kartu ambil (keputusan terbaru)
+- Ditambahkan 5 kartu per tim: 2 kartu +1, 2 kartu +2, dan 1 kartu +3. Deck menjadi 35 kartu.
+- +N: pemain mengambil N kartu dari tumpukan teratas deck.
+- Biaya 0 stamina. Dimainkan sebagai aksi giliran, jadi giliran berakhir setelahnya (asumsi, bisa diubah).
+- Kartu sisa tetap di tangan. Batas 3 hanya berlaku saat pengambilan di awal giliran.

@@ -84,6 +84,7 @@
   .card.evade { background: linear-gradient(#66bb6a, #1b5e20); }
   .card.star { background: linear-gradient(#ffe082, #b8860b); color: #1b1b1b; }
   .card.stamina { background: linear-gradient(#26c6da, #006064); }
+  .card.draw { background: linear-gradient(#ab47bc, #4a148c); }
   .card.selected { border-color: #fff; box-shadow: 0 0 0 3px #ffeb3b; }
   .card:disabled { opacity: 0.4; cursor: default; }
 
@@ -361,6 +362,8 @@
     for (let i = 0; i < 5; i++) cards.push(newCard(side === 'attacker' ? { kind: 'evade' } : { kind: 'touch' }));
     for (let i = 1; i <= 5; i++) cards.push(newCard({ kind: 'star', id: i }));
     for (let v = 1; v <= 5; v++) cards.push(newCard({ kind: 'stamina', value: v }));
+    // Kartu ambil: 2 x +1, 2 x +2, 1 x +3 (ambil N kartu dari teratas deck)
+    for (const n of [1, 1, 2, 2, 3]) cards.push(newCard({ kind: 'draw', value: n }));
     return { deck: shuffle(cards), hand: [], discard: [] };
   }
   function drawToFull(side) {
@@ -427,6 +430,7 @@
     if (c.kind === 'touch') return 'Sentuh';
     if (c.kind === 'evade') return 'Hindar';
     if (c.kind === 'star') return 'Bintang';
+    if (c.kind === 'draw') return `+${c.value} kartu`;
     return `Stamina ±${c.value}`;
   }
   function cardArt(c) {
@@ -434,6 +438,7 @@
     if (c.kind === 'touch') return '✋';
     if (c.kind === 'evade') return '↯';
     if (c.kind === 'star') return '★';
+    if (c.kind === 'draw') return '+' + c.value;
     return '±' + c.value;
   }
 
@@ -726,6 +731,15 @@
     roundOver(`Penjaga ${g.char.name} menyentuh ${a.char.name}. Babak selesai.`);
   }
 
+  // Kartu +N: ambil N kartu dari teratas deck. Biaya 0, menjadi aksi giliran (giliran berakhir).
+  function playDraw(card) {
+    if (!S.activeId) { S.msg = 'Pilih karakter dulu.'; return; }
+    consumeCard(S.turn, card);
+    let got = 0;
+    for (let i = 0; i < card.value; i++) { if (!drawOne(S.turn)) break; got++; }
+    endTurn(`Kartu +${card.value}: mengambil ${got} kartu.`);
+  }
+
   // Kartu bintang: mengaktifkan efek karakter (belum aktif di preview). Kembali ke dek, pakai 5 stamina.
   function useStar(card) {
     const piece = getPiece(S.postMove);
@@ -751,6 +765,7 @@
     if (card.kind === 'evade') { S.msg = 'Kartu menghindar hanya dipakai penyerang saat diserang.'; return; }
     if (card.kind === 'touch' && S.turn !== 'guard') { S.msg = 'Kartu sentuh hanya dipakai penjaga.'; return; }
     if (card.kind === 'star') { S.msg = 'Kartu bintang dipakai setelah kartu gerak.'; return; }
+    if (card.kind === 'draw') return playDraw(card);
     if (!S.activeId) { S.msg = 'Pilih karakter dulu.'; return; }
     if (card.kind === 'stamina') {
       // Kartu stamina: pilih karakter tujuan di papan (tim sendiri +, lawan −).
@@ -941,16 +956,16 @@
     P.hand.forEach(card => {
       const b = document.createElement('button');
       b.className = 'card ' + card.kind + (S.activeCard === card ? ' selected' : '');
-      const cost = card.kind === 'stamina' ? '0' : String(cardCost(card));
+      const cost = (card.kind === 'stamina' || card.kind === 'draw') ? '0' : String(cardCost(card));
       b.innerHTML = '';
       const c1 = document.createElement('div'); c1.className = 'cost'; c1.textContent = cost;
       const c2 = document.createElement('div'); c2.className = 'art'; c2.textContent = cardArt(card);
       const c3 = document.createElement('div'); c3.className = 'name'; c3.textContent = cardLabel(card);
       const c4 = document.createElement('div'); c4.className = 'desc';
-      c4.textContent = card.kind === 'star' ? 'Efek karakter' : card.kind === 'stamina' ? 'Pilih karakter' : card.kind === 'move' ? `Bayar ${S.steps}` : `Bayar ${cardCost(card)}`;
+      c4.textContent = card.kind === 'draw' ? 'Ambil kartu' : card.kind === 'star' ? 'Efek karakter' : card.kind === 'stamina' ? 'Pilih karakter' : card.kind === 'move' ? `Bayar ${S.steps}` : `Bayar ${cardCost(card)}`;
       b.append(c1, c2, c3, c4);
       const allowed = (S.pending && card.kind === 'evade')
-        || (!S.pending && S.phase === 'play' && ((S.turn === 'attacker' && (card.kind === 'move' || card.kind === 'stamina' || card.kind === 'star'))
+        || (!S.pending && S.phase === 'play' && ((S.turn === 'attacker' && (card.kind === 'move' || card.kind === 'stamina' || card.kind === 'star' || card.kind === 'draw'))
           || (S.turn === 'guard' && card.kind !== 'evade')));
       b.disabled = S.phase === 'over' || !allowed || (side !== S.turn && !S.pending);
       b.addEventListener('click', () => { selectCard(card); render(); });
