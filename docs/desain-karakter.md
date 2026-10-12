@@ -61,3 +61,46 @@ Penjaga (aktif saat tim menjaga):
 | Panah Lurus | Papua | Epik | Dapat menyentuh penyerang yang berjarak dua kotak lurus, bukan hanya di area merah. |
 
 Catatan: nilai kelangkaan dan efek perlu diseimbangkan setelah diuji. Detail budaya perlu diverifikasi dengan sumber lokal.
+
+## Revisi: kartu tanpa angka, stamina, dan nama karakter (keputusan user, belum diimplementasi)
+
+### Nama karakter (usulan nama umum per suku)
+| Karakter | Suku | Nama usulan | Catatan |
+|---|---|---|---|
+| Lincah | Jawa | Slamet | nama umum |
+| Pesilat | Minangkabau | Sutan | gelar, perlu cek nama lokal |
+| Mata Elang | Dayak (Ngaju) | Ekot | nama Dayak Ngaju |
+| Penari | Bali | Wayan | nama urutan lahir |
+| Angin Laut | Bugis | Andi | nama umum Bugis |
+| Penjaga Huta | Batak | Togar | nama Batak |
+| Tongkonan | Toraja | Dalle | nama khas Toraja |
+| Pitung | Betawi | Pitung | tokoh Betawi |
+| Pepadu | Sasak | Lalu | gelar laki-laki Sasak |
+| Panah Lurus | Papua | (belum ada) | perlu nama dari sumber lokal |
+
+### Kartu (per tim, 30 kartu)
+- Arah tanpa angka: 5 atas-bawah, 5 kiri-kanan, 5 silang.
+- 5 kartu sentuh/hindar.
+- 5 kartu bintang (hanya ikon, efek dari karakter).
+- 5 kartu stamina: +1, +2, +3, +4, +5 (masing-masing 1 kartu), atau −1 sampai −5.
+  - Dimainkan tanpa biaya stamina.
+  - Pemain memilih: menambah stamina diri sendiri, atau mengurangi stamina lawan.
+
+### Stamina
+- Setiap karakter punya bar stamina awal, dan nilai awal berbeda tiap karakter.
+- Karakter memainkan kartu dengan membayar stamina sesuai harga kartu:
+  - Kartu arah (normal): 1 stamina.
+  - Kartu sentuh/hindar: 3 stamina.
+  - Kartu bintang: 5 stamina.
+  - Kartu stamina: 0 stamina.
+- Sisa stamina tidak hilang.
+- Stamina bertambah 1 setiap pergantian giliran.
+- Angka jarak gerak ditentukan oleh stamina yang dipakai (belum final, lihat pertanyaan).
+
+### Aturan tambahan
+- Penyerang tidak bisa menabrak penjaga, kecuali lewat efek karakter.
+- Kartu sentuh/hindar bisa dipakai kapan saja selama ada penjaga yang bisa menyentuh penyerang di area merah, atau penyerang bisa membalas dengan kartu hindar.
+
+### Pertanyaan terbuka
+- Kartu arah: biaya 1 stamina per kartu, atau jarak sama dengan stamina yang dibayar?
+- Penambahan stamina per giliran: hanya karakter aktif, atau semua karakter tim?
