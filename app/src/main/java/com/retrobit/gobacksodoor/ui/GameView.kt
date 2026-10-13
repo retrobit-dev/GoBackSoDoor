@@ -238,7 +238,7 @@ class GameView(context: Context) : View(context) {
                     }
                     val actions = mutableListOf(
                         Btn("Buang Kartu", true, false) { engine.discardSelected() },
-                        Btn("Lewati", true, false) { engine.skipTurn() },
+                        Btn("Akhiri Giliran", true, false) { engine.skipTurn() },
                     )
                     val sel = engine.pieceById(engine.activeId)
                     if (engine.turn == Side.GUARD && sel?.guardType == GuardType.V) {

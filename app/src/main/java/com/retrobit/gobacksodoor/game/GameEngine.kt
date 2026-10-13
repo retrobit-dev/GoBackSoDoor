@@ -589,12 +589,12 @@ class GameEngine(private val random: Random = Random.Default) {
         endTurn("${target.char.name} ${if (delta > 0) "+" else ""}$delta stamina.")
     }
 
-    /** Kartu ambil +N: ambil N kartu dari teratas deck. Biaya 0, menjadi aksi giliran. */
+    /** Kartu ambil +N: ambil N kartu dari teratas deck. Biaya 0, tidak mengakhiri giliran. */
     private fun playDraw(card: Card.Draw) {
         consume(turn, card)
         var got = 0
         repeat(card.value) { if (drawOne(turn) != null) got++ }
-        endTurn("Kartu +${card.value}: mengambil $got kartu.")
+        message = "Kartu +${card.value}: mengambil $got kartu. Giliran masih berjalan: lanjutkan atau akhiri giliran."
     }
 
     /** Kartu bintang: efek karakter belum aktif; kartu kembali ke dek dan giliran berakhir. */

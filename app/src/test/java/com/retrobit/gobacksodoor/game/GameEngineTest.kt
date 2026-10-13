@@ -169,14 +169,35 @@ class GameEngineTest {
     }
 
     @Test
-    fun drawCardTakesTopCardsAndEndsTurn() {
+    fun drawCardTakesTopCardsAndKeepsTurn() {
         val d = e.decks.getValue(Side.ATTACKER)
         val top = d.deck.takeLast(2)
         setHand(Side.ATTACKER, Card.Draw(980, 2), Card.Move(981, Dir.VERTICAL))
         e.onCell(1, BELOW_Y)
         e.selectCard(hand(Side.ATTACKER)[0])
-        assertEquals(Side.GUARD, e.turn)
+        assertEquals(Side.ATTACKER, e.turn)           // tidak mengakhiri giliran
+        assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
         assertTrue(hand(Side.ATTACKER).containsAll(top))
+        // Setelah ambil, pemain tetap bisa bergerak dengan kartu yang tersisa.
+        e.setSteps(1)
+        e.selectCard(hand(Side.ATTACKER).first { it is Card.Move })
+        e.onCell(1, 20)
+        assertEquals(Side.GUARD, e.turn)
+    }
+
+    @Test
+    fun drawThenEndTurnWithTooManyCardsRequiresDiscard() {
+        setHand(Side.ATTACKER, Card.Draw(985, 3), Card.Move(986, Dir.VERTICAL), Card.Move(987, Dir.CROSS))
+        e.onCell(1, BELOW_Y)
+        e.selectCard(hand(Side.ATTACKER)[0])          // tangan 2 + 3 = 5
+        assertEquals(5, hand(Side.ATTACKER).size)
+        e.skipTurn()                                  // akhiri giliran -> wajib buang 2
+        assertEquals(Side.ATTACKER, e.turn)
+        assertNotNull(e.owed)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.selectCard(hand(Side.ATTACKER)[0])
+        assertEquals(Side.GUARD, e.turn)
+        assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
     }
 
     @Test
