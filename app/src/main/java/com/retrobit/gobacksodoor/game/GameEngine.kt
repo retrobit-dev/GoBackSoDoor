@@ -93,7 +93,7 @@ class Deck {
 }
 
 /** Hasil simulasi gerak. */
-data class MoveResult(val path: List<Int>, val end: Cell, val scored: Boolean = false, val flag: Boolean = false)
+data class MoveResult(val path: List<Int>, val end: Cell, val scored: Boolean = false, val flag: Boolean = false, val steps: Int = 0)
 
 /** Kewajiban membuang kartu di akhir giliran sampai tangan berisi HAND_SIZE. */
 class Owed(val side: Side, val text: String, var need: Int)
@@ -138,8 +138,6 @@ class GameEngine(private val random: Random = Random.Default) {
     var activeId: String? = null
         private set
     var activeCard: Card? = null
-        private set
-    var steps: Int = 1
         private set
     var pending: Pair<Piece, Piece>? = null
         private set
@@ -237,13 +235,6 @@ class GameEngine(private val random: Random = Random.Default) {
         if (side == turn) played = true
     }
 
-    fun cardCost(card: Card): Int = when (card) {
-        is Card.Move -> steps
-        is Card.Touch, is Card.Evade -> TOUCH_COST
-        is Card.Star -> STAR_COST
-        is Card.Stamina, is Card.Draw -> 0
-    }
-
     // ---- Alur permainan ----
 
     fun newGame() {
@@ -261,7 +252,6 @@ class GameEngine(private val random: Random = Random.Default) {
         turn = Side.ATTACKER
         activeId = null
         activeCard = null
-        steps = 1
         pending = null
         postMove = null
         drew = false
@@ -335,7 +325,6 @@ class GameEngine(private val random: Random = Random.Default) {
         turn = if (turn == Side.ATTACKER) Side.GUARD else Side.ATTACKER
         activeId = null
         activeCard = null
-        steps = 1
         postMove = null
         drew = false
         played = false
@@ -446,15 +435,15 @@ class GameEngine(private val random: Random = Random.Default) {
     }
 
     private fun selectPiece(p: Piece) {
-        when {
-            activeId != null && activeId != p.id -> message = "Hanya satu pemain per giliran."
-            activeId == p.id -> message = "${p.char.name} dipilih."
-            else -> {
-                activeId = p.id
-                if (p.side == Side.GUARD && p.visited == null) p.visited = mutableSetOf(key(p.x, p.y))
-                message = "${p.char.name} dipilih (stamina ${p.stamina}). Pilih kartu, lalu klik tujuan."
-            }
+        if (activeId == p.id) {
+            message = "${p.char.name} dipilih."
+            return
         }
+        // Memilih karakter lain membatalkan pilihan sebelumnya (termasuk kartu yang dipilih).
+        activeId = p.id
+        activeCard = null
+        if (p.side == Side.GUARD && p.visited == null) p.visited = mutableSetOf(key(p.x, p.y))
+        message = "${p.char.name} dipilih (stamina ${p.stamina}). Pilih kartu, lalu ketuk kotak tujuan."
     }
 
     /** Pilih kartu di tangan (ketuk kartu). */
@@ -473,11 +462,15 @@ class GameEngine(private val random: Random = Random.Default) {
             card is Card.Evade -> message = "Kartu menghindar hanya dipakai penyerang saat diserang."
             card is Card.Touch && turn != Side.GUARD -> message = "Kartu sentuh hanya dipakai penjaga."
             card is Card.Star -> message = "Kartu bintang dipakai setelah kartu gerak."
-            activeId == null -> message = "Pilih karakter dulu."
             card is Card.Draw -> playDraw(card)
+            card is Card.Stamina -> {
+                activeCard = if (activeCard == card) null else card
+                message = "Ketuk karakter tujuan: sekutu +${card.value}, lawan −${card.value} stamina."
+            }
+            activeId == null -> message = "Pilih karakter dulu."
             else -> {
                 activeCard = if (activeCard == card) null else card
-                message = if (activeCard != null) "Kartu dipilih. Klik karakter tujuan atau kotak tujuan." else "Kartu dibatalkan."
+                message = if (activeCard != null) "Kartu dipilih. Ketuk kotak tujuan untuk bergerak." else "Kartu dibatalkan."
             }
         }
     }
@@ -496,11 +489,6 @@ class GameEngine(private val random: Random = Random.Default) {
         message = "Mengambil $got kartu. Tangan ${hand.size}/$HAND_SIZE. Pilih karakter, lalu kartu."
     }
 
-    fun setSteps(n: Int) {
-        if (phase != Phase.PLAY || pending != null || postMove != null) return
-        steps = n.coerceIn(1, MAX_STEPS)
-    }
-
     private fun attackerAct(x: Int, y: Int) {
         val card = activeCard
         val act = pieceById(activeId)
@@ -511,7 +499,7 @@ class GameEngine(private val random: Random = Random.Default) {
         if (res == null) { message = "Kotak itu tidak bisa dicapai dengan kartu dan stamina ini."; return }
         act.x = res.end.x
         act.y = res.end.y
-        act.stamina -= steps
+        act.stamina -= res.steps
         consume(Side.ATTACKER, card)
         if (res.scored) {
             attackers.remove(act)
@@ -521,7 +509,7 @@ class GameEngine(private val random: Random = Random.Default) {
             endTurn("${act.char.name} mencapai finish: +1 poin untuk Tim ${attTeam.name}.")
             return
         }
-        afterMove(act, "${act.char.name} bergerak ${dirName(card.dir)} $steps kotak.")
+        afterMove(act, "${act.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.")
     }
 
     private fun guardAct(x: Int, y: Int) {
@@ -546,9 +534,9 @@ class GameEngine(private val random: Random = Random.Default) {
         g.touchedH = res.flag
         g.x = res.end.x
         g.y = res.end.y
-        g.stamina -= steps
+        g.stamina -= res.steps
         consume(Side.GUARD, card)
-        afterMove(g, "${g.char.name} bergerak ${dirName(card.dir)} $steps kotak.")
+        afterMove(g, "${g.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.")
     }
 
     private fun declareTouch(g: Piece, a: Piece, card: Card.Touch) {
@@ -624,23 +612,22 @@ class GameEngine(private val random: Random = Random.Default) {
         endTurn("${g.char.name} berganti hadap.")
     }
 
-    /** Buang kartu yang sedang dipilih (kewajiban akhir giliran, atau buang biasa). */
-    fun discardSelected() {
-        val card = activeCard
-        if (owed != null) {
-            if (card == null) { message = "Pilih kartu dulu."; return }
-            discardCard(card)
+    /** Buang kartu ke buangan (seret kartu ke buangan). Saat kewajiban buang, ini memenuhi kewajiban. */
+    fun discardCard(card: Card) {
+        if (phase != Phase.PLAY) return
+        if (owed != null) { discardOwed(card); return }
+        if (pending != null || postMove != null) {
+            message = "Selesaikan aksi dulu sebelum membuang kartu."
             return
         }
-        if (card == null) { message = "Pilih kartu di tangan dulu, lalu buang."; return }
         val d = decks[turn] ?: return
         if (!d.hand.remove(card)) return
         d.discard.add(card)
-        activeCard = null
-        message = "Kartu dibuang. Tangan ${d.hand.size}/$HAND_SIZE."
+        if (activeCard == card) activeCard = null
+        message = "Kartu dibuang ke buangan. Tangan ${d.hand.size}/$HAND_SIZE."
     }
 
-    private fun discardCard(card: Card) {
+    private fun discardOwed(card: Card) {
         val o = owed ?: return
         val d = decks[o.side] ?: return
         if (!d.hand.remove(card)) { message = "Pilih kartu di tangan untuk dibuang."; return }
@@ -682,12 +669,12 @@ class GameEngine(private val random: Random = Random.Default) {
             x = nx
             y = ny
             path.add(key(x, y))
-            if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true)
             if (zoneOf(x, y) != Zone.LANE) rem--
+            if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true, steps = n - rem)
         }
         if (rem > 0) return null
         if (x == a.x && y == a.y) return null
-        return MoveResult(path, Cell(x, y))
+        return MoveResult(path, Cell(x, y), steps = n)
     }
 
     private fun canRevisit(g: Piece, x: Int, flag: Boolean): Boolean =
@@ -722,27 +709,25 @@ class GameEngine(private val random: Random = Random.Default) {
         }
         if (rem > 0) return null
         if (x == g.x && y == g.y) return null
-        return MoveResult(path, Cell(x, y), flag = flag)
+        return MoveResult(path, Cell(x, y), flag = flag, steps = n)
     }
 
     fun attackerTargets(a: Piece, card: Card.Move): Map<Cell, MoveResult> {
         val map = linkedMapOf<Cell, MoveResult>()
-        if (a.stamina < steps) return map
-        for ((dx, dy) in signs(card.dir, Side.ATTACKER)) {
-            simAttacker(a, dx, dy, steps)?.let { map.putIfAbsent(it.end, it) }
+        for (n in 1..a.stamina) for ((dx, dy) in signs(card.dir, Side.ATTACKER)) {
+            simAttacker(a, dx, dy, n)?.let { map.putIfAbsent(it.end, it) }
         }
         return map
     }
 
     fun guardTargets(g: Piece, card: Card.Move): Map<Cell, MoveResult> {
         val map = linkedMapOf<Cell, MoveResult>()
-        if (g.stamina < steps) return map
         if (card.dir != Dir.CROSS) {
             if (g.guardType == GuardType.H && card.dir != Dir.HORIZONTAL) return map
             if (g.guardType == GuardType.V && card.dir != Dir.VERTICAL) return map
         }
-        for ((dx, dy) in signs(card.dir, Side.GUARD)) {
-            simGuard(g, dx, dy, steps)?.let { map.putIfAbsent(it.end, it) }
+        for (n in 1..g.stamina) for ((dx, dy) in signs(card.dir, Side.GUARD)) {
+            simGuard(g, dx, dy, n)?.let { map.putIfAbsent(it.end, it) }
         }
         return map
     }

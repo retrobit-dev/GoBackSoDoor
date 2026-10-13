@@ -50,7 +50,6 @@ class GameEngineTest {
     @Test
     fun moveCostsOneStaminaPerStep() {
         setHand(Side.ATTACKER, Card.Move(900, Dir.VERTICAL), Card.Move(901, Dir.HORIZONTAL), Card.Move(902, Dir.CROSS))
-        e.setSteps(2)
         e.onCell(1, BELOW_Y)                 // pilih penyerang A1
         e.selectCard(hand(Side.ATTACKER)[0]) // atas-bawah
         e.onCell(1, 18)                      // 2 kotak ke atas; garis batas (1,19) tidak dihitung
@@ -65,7 +64,6 @@ class GameEngineTest {
         a.x = 11
         a.y = 10
         setHand(Side.ATTACKER, Card.Move(910, Dir.HORIZONTAL), Card.Move(911, Dir.CROSS), Card.Move(912, Dir.CROSS))
-        e.setSteps(3)
         e.onCell(11, 10)
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(8, 10)                      // kanan 3 memantul di dinding (12,10), tanpa biaya angka
@@ -179,7 +177,6 @@ class GameEngineTest {
         assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
         assertTrue(hand(Side.ATTACKER).containsAll(top))
         // Setelah ambil, pemain tetap bisa bergerak dengan kartu yang tersisa.
-        e.setSteps(1)
         e.selectCard(hand(Side.ATTACKER).first { it is Card.Move })
         e.onCell(1, 20)
         assertEquals(Side.GUARD, e.turn)
@@ -219,7 +216,6 @@ class GameEngineTest {
         a.stamina = 4
         e.scores[Team.A] = 4
         setHand(Side.ATTACKER, Card.Move(1000, Dir.VERTICAL), Card.Move(1001, Dir.CROSS), Card.Move(1002, Dir.CROSS))
-        e.setSteps(2)
         e.onCell(1, 2)
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 0)
@@ -233,11 +229,41 @@ class GameEngineTest {
         // Kartu silang untuk penjaga bergerak ortogonal (tidak diagonal).
         e.skipTurn()
         setHand(Side.GUARD, Card.Move(1010, Dir.CROSS), Card.Move(1011, Dir.VERTICAL), Card.Move(1012, Dir.CROSS))
-        e.setSteps(1)
         e.onCell(2, 1)
         e.selectCard(hand(Side.GUARD)[0])
         e.onCell(3, 1)
         assertEquals(3, guard("H1").x)
         assertEquals(1, guard("H1").y)
+    }
+
+    @Test
+    fun stepsAreChosenByDestinationCell() {
+        setHand(Side.ATTACKER, Card.Move(1100, Dir.VERTICAL), Card.Move(1101, Dir.CROSS), Card.Move(1102, Dir.CROSS))
+        e.onCell(1, BELOW_Y)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 20)                                // 1 kotak
+        assertEquals(3, attacker("A1").stamina)        // 4 - 1
+        assertEquals(Side.GUARD, e.turn)
+    }
+
+    @Test
+    fun selectingAnotherCharacterCancelsCardSelection() {
+        setHand(Side.ATTACKER, Card.Move(1110, Dir.VERTICAL), Card.Move(1111, Dir.CROSS), Card.Move(1112, Dir.CROSS))
+        e.onCell(1, BELOW_Y)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        assertNotNull(e.activeCard)
+        e.onCell(3, BELOW_Y)                           // pilih penyerang lain
+        assertEquals("A2", e.activeId)
+        assertNull(e.activeCard)
+    }
+
+    @Test
+    fun discardCardMovesHandCardToDiscardPile() {
+        setHand(Side.ATTACKER, Card.Move(1120, Dir.VERTICAL), Card.Move(1121, Dir.CROSS), Card.Move(1122, Dir.CROSS))
+        val before = e.decks.getValue(Side.ATTACKER).discard.size
+        e.discardCard(hand(Side.ATTACKER)[0])
+        assertEquals(2, hand(Side.ATTACKER).size)
+        assertEquals(before + 1, e.decks.getValue(Side.ATTACKER).discard.size)
+        assertEquals(Side.ATTACKER, e.turn)            // membuang tidak mengakhiri giliran
     }
 }
