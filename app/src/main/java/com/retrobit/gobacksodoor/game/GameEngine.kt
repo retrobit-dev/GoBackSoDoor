@@ -84,6 +84,8 @@ class Piece(
     var facing: Facing = if (guardType == GuardType.V) Facing.RIGHT else Facing.DOWN
     var visited: MutableSet<Int>? = null
     var touchedH: Boolean = false
+    /** Penyerang: baris garis batas terdekat yang sudah dilewati; tidak boleh kembali melewatinya. */
+    var barrier: Int = ROWS
 }
 
 class Deck {
@@ -93,7 +95,7 @@ class Deck {
 }
 
 /** Hasil simulasi gerak. */
-data class MoveResult(val path: List<Int>, val end: Cell, val scored: Boolean = false, val flag: Boolean = false, val steps: Int = 0)
+data class MoveResult(val path: List<Int>, val end: Cell, val scored: Boolean = false, val flag: Boolean = false, val steps: Int = 0, val barrier: Int = ROWS)
 
 /** Kewajiban membuang kartu di akhir giliran sampai tangan berisi HAND_SIZE. */
 class Owed(val side: Side, val text: String, var need: Int)
@@ -502,6 +504,7 @@ class GameEngine(private val random: Random = Random.Default) {
         if (res == null) { message = "Kotak itu tidak bisa dicapai dengan kartu dan stamina ini."; return }
         act.x = res.end.x
         act.y = res.end.y
+        act.barrier = res.barrier
         act.stamina -= res.steps
         consume(Side.ATTACKER, card)
         if (res.scored) {
@@ -615,12 +618,12 @@ class GameEngine(private val random: Random = Random.Default) {
             return
         }
         val card = activeCard as? Card.Move ?: run { message = "Pilih kartu arah dulu, lalu putar hadap."; return }
-        val type = g.guardType ?: return
-        consume(Side.GUARD, card)
-        g.facing = when (type) {
-            GuardType.H -> if (g.facing == Facing.DOWN) Facing.UP else Facing.DOWN
-            GuardType.V -> if (g.facing == Facing.LEFT) Facing.RIGHT else Facing.LEFT
+        if (g.guardType != GuardType.V) {
+            message = "Penjaga baris selalu menghadap start."
+            return
         }
+        consume(Side.GUARD, card)
+        g.facing = if (g.facing == Facing.LEFT) Facing.RIGHT else Facing.LEFT
         activeCard = null
         endTurn("${g.char.name} berputar hadap dengan kartu ${dirName(card.dir)}.")
     }
@@ -671,6 +674,7 @@ class GameEngine(private val random: Random = Random.Default) {
         var dx = sdx
         var dy = sdy
         var rem = n
+        var barrier = a.barrier
         val path = mutableListOf<Int>()
         var guard = 0
         while (rem > 0 && guard++ < 80) {
@@ -679,15 +683,18 @@ class GameEngine(private val random: Random = Random.Default) {
             if (isWallX(nx)) { dx = -dx; continue }
             if (ny < 0 || ny >= ROWS) { dy = -dy; continue }
             if (occupiedBy(nx, ny, a.id)) return null
+            // Tidak boleh kembali melewati garis batas yang sudah dilewati.
+            if (ny > barrier) return null
             x = nx
             y = ny
             path.add(key(x, y))
+            H_LANES.firstOrNull { y <= it }?.let { if (it < barrier) barrier = it }
             rem--
-            if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true, steps = n - rem)
+            if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true, steps = n - rem, barrier = barrier)
         }
         if (rem > 0) return null
         if (x == a.x && y == a.y) return null
-        return MoveResult(path, Cell(x, y), steps = n)
+        return MoveResult(path, Cell(x, y), steps = n, barrier = barrier)
     }
 
     private fun canRevisit(g: Piece, x: Int, flag: Boolean): Boolean =

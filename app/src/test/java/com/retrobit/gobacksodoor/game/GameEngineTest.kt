@@ -315,4 +315,29 @@ class GameEngineTest {
         assertEquals(Facing.RIGHT, guard("V1").facing)
         assertEquals(Side.GUARD, e.turn)
     }
+
+    @Test
+    fun attackerCannotMoveBackPastPassedBoundary() {
+        val a = attacker("A1")
+        a.x = 1
+        a.y = 18
+        a.barrier = 19                                 // sudah melewati garis batas baris 19
+        setHand(Side.ATTACKER, Card.Move(1160, Dir.VERTICAL), Card.Move(1161, Dir.CROSS), Card.Move(1162, Dir.CROSS))
+        e.onCell(1, 18)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 20)                                // kembali ke baris 20 dilarang
+        assertEquals(18, a.y)
+        assertEquals(Side.ATTACKER, e.turn)
+    }
+
+    @Test
+    fun guardRowCannotTurnFace() {
+        e.skipTurn()
+        setHand(Side.GUARD, Card.Move(1170, Dir.CROSS), Card.Move(1171, Dir.VERTICAL), Card.Move(1172, Dir.HORIZONTAL))
+        e.onCell(2, 1)                                 // H1 penjaga baris
+        e.selectCard(hand(Side.GUARD)[0])
+        e.turnFace()
+        assertEquals(Facing.DOWN, guard("H1").facing)
+        assertEquals(Side.GUARD, e.turn)
+    }
 }

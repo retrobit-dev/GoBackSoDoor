@@ -396,7 +396,7 @@ class GameView(context: Context) : View(context) {
                             }
                         }
                         val sel = engine.pieceById(engine.activeId)
-                        if (engine.turn == Side.GUARD && sel != null && (sel.y in H_LANES || sel.x == CENTER_X)) {
+                        if (engine.turn == Side.GUARD && sel?.guardType == GuardType.V && (sel.y in H_LANES || sel.x == CENTER_X)) {
                             list += Btn("Putar Hadap", engine.activeCard is Card.Move, false) { engine.turnFace() }
                         }
                     }
