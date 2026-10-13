@@ -39,12 +39,12 @@ object CardArt {
             Dir.VERTICAL -> Look(
                 Color.rgb(30, 136, 229), Color.rgb(10, 50, 120), "Gerak Atas-Bawah", "KARTU GERAK", "1+",
                 "Biaya: 1 stamina / kotak",
-                "Pilih 1 sampai stamina karakter. Penyerang memantul di dinding tanpa biaya.",
+                "Bayar 1 stamina per kotak, termasuk garis batas. Penyerang memantul di dinding tanpa biaya.",
             )
             Dir.HORIZONTAL -> Look(
                 Color.rgb(0, 150, 136), Color.rgb(0, 70, 60), "Gerak Kanan-Kiri", "KARTU GERAK", "1+",
                 "Biaya: 1 stamina / kotak",
-                "Pilih 1 sampai stamina karakter. Penyerang memantul di dinding tanpa biaya.",
+                "Bayar 1 stamina per kotak, termasuk garis batas. Penyerang memantul di dinding tanpa biaya.",
             )
             Dir.CROSS -> Look(
                 Color.rgb(142, 36, 170), Color.rgb(60, 15, 90), "Gerak Silang", "KARTU GERAK", "1+",

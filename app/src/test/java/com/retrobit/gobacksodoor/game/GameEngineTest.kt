@@ -52,8 +52,8 @@ class GameEngineTest {
         setHand(Side.ATTACKER, Card.Move(900, Dir.VERTICAL), Card.Move(901, Dir.HORIZONTAL), Card.Move(902, Dir.CROSS))
         e.onCell(1, BELOW_Y)                 // pilih penyerang A1
         e.selectCard(hand(Side.ATTACKER)[0]) // atas-bawah
-        e.onCell(1, 18)                      // 2 kotak ke atas; garis batas (1,19) tidak dihitung
-        assertEquals(Cell(1, 18), Cell(attacker("A1").x, attacker("A1").y))
+        e.onCell(1, 19)                      // 2 kotak ke atas; garis batas (1,19) ikut dihitung
+        assertEquals(Cell(1, 19), Cell(attacker("A1").x, attacker("A1").y))
         assertEquals(2, attacker("A1").stamina)
         assertEquals(Side.GUARD, e.turn)
     }
@@ -265,5 +265,17 @@ class GameEngineTest {
         assertEquals(2, hand(Side.ATTACKER).size)
         assertEquals(before + 1, e.decks.getValue(Side.ATTACKER).discard.size)
         assertEquals(Side.ATTACKER, e.turn)            // membuang tidak mengakhiri giliran
+    }
+
+    @Test
+    fun attackerCannotJumpOverBoundaryLanes() {
+        // Dari baris coklat (y=21) ke y=18 harus melewati garis batas y=19 dengan langkah: 3 kotak.
+        attacker("A1").stamina = 4
+        setHand(Side.ATTACKER, Card.Move(1130, Dir.VERTICAL), Card.Move(1131, Dir.CROSS), Card.Move(1132, Dir.CROSS))
+        e.onCell(1, BELOW_Y)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 18)
+        assertEquals(Cell(1, 18), Cell(attacker("A1").x, attacker("A1").y))
+        assertEquals(1, attacker("A1").stamina)       // 4 - 3
     }
 }

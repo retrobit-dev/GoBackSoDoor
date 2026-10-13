@@ -651,7 +651,7 @@ class GameEngine(private val random: Random = Random.Default) {
         else listOf(0 to 1, 0 to -1, 1 to 0, -1 to 0)
     }
 
-    /** Penyerang: garis batas tidak dihitung; dinding memantulkan arah tanpa biaya; tidak menabrak penjaga. */
+    /** Penyerang: setiap kotak (termasuk garis batas) membayar 1 stamina; dinding memantulkan arah tanpa biaya; tidak menabrak penjaga. */
     private fun simAttacker(a: Piece, sdx: Int, sdy: Int, n: Int): MoveResult? {
         var x = a.x
         var y = a.y
@@ -669,7 +669,7 @@ class GameEngine(private val random: Random = Random.Default) {
             x = nx
             y = ny
             path.add(key(x, y))
-            if (zoneOf(x, y) != Zone.LANE) rem--
+            rem--
             if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true, steps = n - rem)
         }
         if (rem > 0) return null
