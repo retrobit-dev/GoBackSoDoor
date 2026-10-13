@@ -23,7 +23,7 @@ enum class Side { ATTACKER, GUARD }
 enum class Zone { WALL, START, BELOW, END, LANE, FIELD }
 enum class Dir { VERTICAL, HORIZONTAL, CROSS }
 enum class GuardType { H, V }
-enum class Facing { LEFT, RIGHT, DOWN }
+enum class Facing { LEFT, RIGHT, UP, DOWN }
 enum class Phase { SETUP, PLAY, OVER, WON, ENDED }
 enum class SetupTool { ATTACKER, GUARD, ERASE }
 
@@ -180,14 +180,17 @@ class GameEngine(private val random: Random = Random.Default) {
 
     private fun turnTeam(): Team = if (turn == Side.ATTACKER) attTeam else attTeam.other()
 
-    /** Area sentuh penjaga: kotak di depan + dua kotak di sebelahnya (sesuai arah hadap). */
+    /** Area sentuh penjaga: kotak di depan, dua sisinya, dan dua sisi penjaga (kiri-kanan sesuai hadap). */
     fun threatCells(g: Piece): List<Cell> {
-        val (dx, dy) = if (g.guardType == GuardType.H) 0 to 1
-        else if (g.facing == Facing.LEFT) -1 to 0 else 1 to 0
+        val (dx, dy) = when (g.guardType) {
+            GuardType.H -> if (g.facing == Facing.UP) 0 to -1 else 0 to 1
+            else -> if (g.facing == Facing.LEFT) -1 to 0 else 1 to 0
+        }
         val fx = g.x + dx
         val fy = g.y + dy
-        val sides = if (dx == 0) listOf(Cell(fx - 1, fy), Cell(fx + 1, fy)) else listOf(Cell(fx, fy - 1), Cell(fx, fy + 1))
-        return (listOf(Cell(fx, fy)) + sides).filter { inBounds(it.x, it.y) }
+        val frontSides = if (dx == 0) listOf(Cell(fx - 1, fy), Cell(fx + 1, fy)) else listOf(Cell(fx, fy - 1), Cell(fx, fy + 1))
+        val selfSides = if (dx == 0) listOf(Cell(g.x - 1, g.y), Cell(g.x + 1, g.y)) else listOf(Cell(g.x, g.y - 1), Cell(g.x, g.y + 1))
+        return (listOf(Cell(fx, fy)) + frontSides + selfSides).filter { inBounds(it.x, it.y) }
     }
 
     // ---- Kartu & dek ----
@@ -602,14 +605,24 @@ class GameEngine(private val random: Random = Random.Default) {
         endTurn("Giliran dilewati.")
     }
 
-    /** Putar hadap penjaga kolom (memakan giliran). */
+    /** Penjaga di garis batas (baris atau kolom tengah) berputar hadap dengan kartu arah apa pun. Memakan giliran. */
     fun turnFace() {
         if (phase != Phase.PLAY || pending != null || postMove != null || owed != null || turn != Side.GUARD) return
         val g = pieceById(activeId)
-        if (g == null || g.guardType != GuardType.V) { message = "Pilih penjaga kolom dulu."; return }
-        if (activeCard != null) { message = "Batalkan kartu dulu."; return }
-        g.facing = if (g.facing == Facing.LEFT) Facing.RIGHT else Facing.LEFT
-        endTurn("${g.char.name} berganti hadap.")
+        if (g == null || g.side != Side.GUARD) { message = "Pilih penjaga dulu."; return }
+        if (!(g.y in H_LANES || g.x == CENTER_X)) {
+            message = "Penjaga hanya bisa berputar hadap di garis batas (baris atau kolom tengah)."
+            return
+        }
+        val card = activeCard as? Card.Move ?: run { message = "Pilih kartu arah dulu, lalu putar hadap."; return }
+        val type = g.guardType ?: return
+        consume(Side.GUARD, card)
+        g.facing = when (type) {
+            GuardType.H -> if (g.facing == Facing.DOWN) Facing.UP else Facing.DOWN
+            GuardType.V -> if (g.facing == Facing.LEFT) Facing.RIGHT else Facing.LEFT
+        }
+        activeCard = null
+        endTurn("${g.char.name} berputar hadap dengan kartu ${dirName(card.dir)}.")
     }
 
     /** Buang kartu ke buangan (seret kartu ke buangan). Saat kewajiban buang, ini memenuhi kewajiban. */

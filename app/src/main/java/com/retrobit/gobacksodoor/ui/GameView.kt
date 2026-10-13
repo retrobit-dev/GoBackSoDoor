@@ -12,7 +12,9 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.MotionEvent
 import android.view.View
+import com.retrobit.gobacksodoor.game.CENTER_X
 import com.retrobit.gobacksodoor.game.COLS
+import com.retrobit.gobacksodoor.game.H_LANES
 import com.retrobit.gobacksodoor.game.Card
 import com.retrobit.gobacksodoor.game.Facing
 import com.retrobit.gobacksodoor.game.GameEngine
@@ -344,11 +346,14 @@ class GameView(context: Context) : View(context) {
             text.textSize = cell * 0.2f
             drawCentered(canvas, p.char.name, cx, cy + r + cell * 0.2f, text)
 
+            text.textSize = cell * 0.26f
             if (p.guardType == GuardType.V) {
-                text.textSize = cell * 0.26f
                 val arrow = if (p.facing == Facing.LEFT) "◀" else "▶"
                 val ax = if (p.facing == Facing.LEFT) cx - r - cell * 0.22f else cx + r + cell * 0.22f
                 drawCentered(canvas, arrow, ax, cy, text)
+            } else if (p.guardType == GuardType.H) {
+                val arrow = if (p.facing == Facing.UP) "▲" else "▼"
+                drawCentered(canvas, arrow, cx + r + cell * 0.22f, cy, text)
             }
         }
     }
@@ -391,8 +396,8 @@ class GameView(context: Context) : View(context) {
                             }
                         }
                         val sel = engine.pieceById(engine.activeId)
-                        if (engine.turn == Side.GUARD && sel?.guardType == GuardType.V) {
-                            list += Btn("Putar Hadap", true, false) { engine.turnFace() }
+                        if (engine.turn == Side.GUARD && sel != null && (sel.y in H_LANES || sel.x == CENTER_X)) {
+                            list += Btn("Putar Hadap", engine.activeCard is Card.Move, false) { engine.turnFace() }
                         }
                     }
                 }

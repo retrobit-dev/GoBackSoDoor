@@ -278,4 +278,41 @@ class GameEngineTest {
         assertEquals(Cell(1, 18), Cell(attacker("A1").x, attacker("A1").y))
         assertEquals(1, attacker("A1").stamina)       // 4 - 3
     }
+
+    @Test
+    fun touchAreaIncludesGuardSides() {
+        val v1 = guard("V1")                           // (6,10) menghadap kanan
+        val cells = e.threatCells(v1)
+        assertTrue(cells.contains(Cell(7, 10)))        // depan
+        assertTrue(cells.contains(Cell(6, 9)))         // sisi penjaga (atas)
+        assertTrue(cells.contains(Cell(6, 11)))        // sisi penjaga (bawah)
+        val h1 = guard("H1")                           // (2,1) menghadap bawah
+        val hCells = e.threatCells(h1)
+        assertTrue(hCells.contains(Cell(2, 2)))
+        assertTrue(hCells.contains(Cell(1, 1)))        // sisi penjaga (kiri)
+        assertTrue(hCells.contains(Cell(3, 1)))        // sisi penjaga (kanan)
+    }
+
+    @Test
+    fun guardOnBoundaryTurnsFaceWithAnyMoveCard() {
+        e.skipTurn()                                   // penjaga
+        setHand(Side.GUARD, Card.Move(1140, Dir.CROSS), Card.Move(1141, Dir.VERTICAL), Card.Move(1142, Dir.HORIZONTAL))
+        e.onCell(6, 10)                                // V1 di kolom tengah (garis batas)
+        e.selectCard(hand(Side.GUARD)[0])              // kartu silang
+        e.turnFace()
+        assertEquals(Facing.LEFT, guard("V1").facing)
+        assertEquals(Side.ATTACKER, e.turn)            // memakan giliran
+    }
+
+    @Test
+    fun guardOffBoundaryCannotTurnFace() {
+        e.skipTurn()
+        guard("V1").x = 5                              // bukan garis batas
+        setHand(Side.GUARD, Card.Move(1150, Dir.CROSS), Card.Move(1151, Dir.VERTICAL), Card.Move(1152, Dir.HORIZONTAL))
+        e.onCell(5, 10)
+        e.selectCard(hand(Side.GUARD)[0])
+        e.turnFace()
+        assertEquals(Facing.RIGHT, guard("V1").facing)
+        assertEquals(Side.GUARD, e.turn)
+    }
 }
