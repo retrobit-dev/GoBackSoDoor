@@ -118,7 +118,7 @@ class GameEngineTest {
         e.selectCard(hand(Side.GUARD)[0])
         e.onCell(7, 10)
         assertNotNull(e.pending)
-        assertEquals(2, v.stamina)
+        assertEquals(3, v.stamina)               // 5 + 1 (awal giliran) - 3 (sentuh)
         e.evade()
         assertNull(e.pending)
         assertEquals(Side.ATTACKER, e.turn)

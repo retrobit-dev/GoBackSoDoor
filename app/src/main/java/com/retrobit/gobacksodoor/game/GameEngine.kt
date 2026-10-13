@@ -295,8 +295,9 @@ class GameEngine(private val random: Random = Random.Default) {
             winner = null
             message = "Semua babak selesai. Skor seri $a–$b."
         } else {
-            winner = if (a > b) Team.A else Team.B
-            message = "Semua babak selesai. Tim ${winner!!.name} menang dengan ${scores[winner]} poin."
+            val win = if (a > b) Team.A else Team.B
+            winner = win
+            message = "Semua babak selesai. Tim ${win.name} menang dengan ${maxOf(a, b)} poin."
         }
     }
 
