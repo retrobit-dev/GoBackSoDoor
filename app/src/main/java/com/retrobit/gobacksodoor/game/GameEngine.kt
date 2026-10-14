@@ -29,6 +29,20 @@ enum class SetupTool { ATTACKER, GUARD, ERASE }
 
 data class Cell(val x: Int, val y: Int)
 
+/** Jenis rintangan yang muncul di area permainan tiap giliran. */
+enum class ObstacleKind { HOLE, ROCK, BUSH }
+
+/** Rintangan di papan. [left] = sisa giliran sebelum hilang. */
+class Obstacle(val x: Int, val y: Int, val kind: ObstacleKind, var left: Int)
+
+const val OBSTACLE_TURNS = 4
+
+fun obstacleName(k: ObstacleKind): String = when (k) {
+    ObstacleKind.HOLE -> "lubang"
+    ObstacleKind.ROCK -> "batu"
+    ObstacleKind.BUSH -> "semak"
+}
+
 /** Karakter: satu efek, satu tipe utama (penyerang atau penjaga). */
 data class Character(
     val name: String,
@@ -89,6 +103,10 @@ class Piece(
 ) {
     var facing: Facing = if (guardType == GuardType.V) Facing.RIGHT else Facing.DOWN
     var visited: MutableSet<Int>? = null
+    /** Terkunci: tidak bisa dimainkan pada giliran pemiliknya (karena jatuh ke lubang). */
+    var locked: Boolean = false
+    /** Akan terkunci pada giliran pemilik berikutnya. */
+    var lockPending: Boolean = false
     var touchedH: Boolean = false
     /** Penyerang: baris garis batas terdekat yang sudah dilewati; tidak boleh kembali melewatinya. */
     var barrier: Int = ROWS
@@ -129,7 +147,7 @@ fun dirName(dir: Dir): String = when (dir) {
  * Logika inti Gobak Sodor versi kartu & stamina (tanpa dependensi Android).
  * Aturan mengikuti preview/index.html.
  */
-class GameEngine(private val random: Random = Random.Default) {
+class GameEngine(private val random: Random = Random.Default, private val obstaclesOn: Boolean = true) {
 
     var phase: Phase = Phase.SETUP
         private set
@@ -163,6 +181,10 @@ class GameEngine(private val random: Random = Random.Default) {
     val attackers: MutableList<Piece> = mutableListOf()
     val guards: MutableList<Piece> = mutableListOf()
     val decks: MutableMap<Side, Deck> = mutableMapOf()
+    val obstacles: MutableList<Obstacle> = mutableListOf()
+    /** Teks rintangan yang muncul pada giliran terakhir. */
+    var lastSpawn: String = ""
+        private set
 
     private var uidCounter = 0
 
@@ -177,6 +199,22 @@ class GameEngine(private val random: Random = Random.Default) {
     fun pieceAt(x: Int, y: Int): Piece? = (attackers + guards).firstOrNull { it.x == x && it.y == y }
 
     fun pieceById(id: String?): Piece? = (attackers + guards).firstOrNull { it.id == id }
+
+    fun obstacleAt(x: Int, y: Int): Obstacle? = obstacles.firstOrNull { it.x == x && it.y == y }
+
+    /** Muncul satu rintangan acak di kotak lapangan kosong. */
+    private fun spawnObstacle() {
+        if (!obstaclesOn) return
+        val free = mutableListOf<Cell>()
+        for (x in 0 until COLS) for (y in 0 until ROWS) {
+            if (zoneOf(x, y) == Zone.FIELD && pieceAt(x, y) == null && obstacleAt(x, y) == null) free.add(Cell(x, y))
+        }
+        if (free.isEmpty()) return
+        val c = free[random.nextInt(free.size)]
+        val kind = ObstacleKind.values()[random.nextInt(ObstacleKind.values().size)]
+        obstacles.add(Obstacle(c.x, c.y, kind, OBSTACLE_TURNS))
+        lastSpawn = "Muncul ${obstacleName(kind)} di kotak (${c.x + 1},${ROWS - c.y})."
+    }
 
     private fun occupiedBy(x: Int, y: Int, ignoreId: String): Boolean {
         val p = pieceAt(x, y) ?: return false
@@ -275,6 +313,8 @@ class GameEngine(private val random: Random = Random.Default) {
         owed = null
         attackers.clear()
         guards.clear()
+        obstacles.clear()
+        lastSpawn = ""
         decks[Side.ATTACKER] = buildDeck(Side.ATTACKER)
         decks[Side.GUARD] = buildDeck(Side.GUARD)
         drawToFull(Side.ATTACKER)
@@ -347,7 +387,15 @@ class GameEngine(private val random: Random = Random.Default) {
         guards.forEach { it.visited = null; it.touchedH = false }
         val pieces = if (turn == Side.ATTACKER) attackers else guards
         pieces.forEach { it.stamina += 1 }
-        message = (if (text.isNotEmpty()) "$text " else "") + "Giliran ${turnName()}. Stamina +1 untuk karakter tim ini."
+        // Rintangan: umur berkurang, lalu muncul satu rintangan baru.
+        for (o in obstacles) o.left--
+        obstacles.removeAll { it.left <= 0 }
+        lastSpawn = ""
+        spawnObstacle()
+        // Piece yang jatuh ke lubang terkunci pada giliran pemiliknya berikutnya.
+        pieces.forEach { it.locked = it.lockPending; it.lockPending = false }
+        val spawn = if (lastSpawn.isNotEmpty()) " $lastSpawn" else ""
+        message = (if (text.isNotEmpty()) "$text " else "") + "Giliran ${turnName()}. Stamina +1 untuk karakter tim ini.$spawn"
     }
 
     /** Setelah kartu gerak: jika bisa, tahan giliran agar bisa memakai bintang. */
@@ -448,6 +496,21 @@ class GameEngine(private val random: Random = Random.Default) {
         if (turn == Side.ATTACKER) attackerAct(x, y) else guardAct(x, y)
     }
 
+    /** Efek rintangan setelah bergerak: semak mengurangi stamina, lubang mengunci. */
+    private fun hazard(p: Piece, path: List<Int>, end: Cell): String {
+        val pen = path.count { obstacleAt(it % COLS, it / COLS)?.kind == ObstacleKind.BUSH }
+        var text = ""
+        if (pen > 0) {
+            p.stamina = (p.stamina - pen).coerceAtLeast(0)
+            text += " Semak: −$pen stamina."
+        }
+        if (obstacleAt(end.x, end.y)?.kind == ObstacleKind.HOLE) {
+            p.lockPending = true
+            text += " ${p.char.name} jatuh ke lubang, terkunci sampai giliran berikutnya."
+        }
+        return text
+    }
+
     /** Pemilik kartu karakter di papan (null jika karakter sudah tidak di papan). */
     fun ownerOf(card: Card): Piece? {
         val n = card.owner ?: return null
@@ -457,7 +520,7 @@ class GameEngine(private val random: Random = Random.Default) {
     /** Kartu menghindar di tangan penyerang untuk karakter yang sedang disentuh. */
     fun evadeCard(): Card.Evade? {
         val a = pending?.second ?: return null
-        return decks[Side.ATTACKER]?.hand?.firstOrNull { it is Card.Evade && it.owner == a.char.name } as? Card.Evade
+        return decks[Side.ATTACKER]?.hand?.firstOrNull { it is Card.Evade && it.owner == a.char.name && !a.locked } as? Card.Evade
     }
 
     /** Karakter dipilih lewat kartunya (tidak ada pemilihan langsung di papan). */
@@ -499,6 +562,7 @@ class GameEngine(private val random: Random = Random.Default) {
         val p = ownerOf(card)
         if (p == null) { message = "Karakter ${card.owner} tidak ada di papan."; return }
         if (p.side != turn) { message = "${p.char.name} bukan milik giliran ini."; return }
+        if (p.locked) { message = "${p.char.name} terkunci di lubang sampai giliran berikutnya."; return }
         if (activeCard == card) {
             activeCard = null
             message = "Kartu dibatalkan."
@@ -536,6 +600,7 @@ class GameEngine(private val random: Random = Random.Default) {
         act.y = res.end.y
         act.barrier = res.barrier
         act.stamina -= res.steps
+        val hz = hazard(act, res.path, res.end)
         consume(Side.ATTACKER, card)
         if (res.scored) {
             attackers.remove(act)
@@ -545,7 +610,7 @@ class GameEngine(private val random: Random = Random.Default) {
             endTurn("${act.char.name} mencapai finish: +1 poin untuk Tim ${attTeam.name}.")
             return
         }
-        afterMove(act, "${act.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.")
+        afterMove(act, "${act.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.$hz")
     }
 
     private fun guardAct(x: Int, y: Int) {
@@ -571,8 +636,9 @@ class GameEngine(private val random: Random = Random.Default) {
         g.x = res.end.x
         g.y = res.end.y
         g.stamina -= res.steps
+        val hz = hazard(g, res.path, res.end)
         consume(Side.GUARD, card)
-        afterMove(g, "${g.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.")
+        afterMove(g, "${g.char.name} bergerak ${dirName(card.dir)} ${res.steps} kotak.$hz")
     }
 
     private fun declareTouch(g: Piece, a: Piece, card: Card.Touch) {
@@ -713,6 +779,7 @@ class GameEngine(private val random: Random = Random.Default) {
             if (isWallX(nx)) { dx = -dx; continue }
             if (ny < 0 || ny >= ROWS) { dy = -dy; continue }
             if (occupiedBy(nx, ny, a.id)) return null
+            if (obstacleAt(nx, ny)?.kind == ObstacleKind.ROCK) return null
             // Tidak boleh kembali melewati garis batas yang sudah dilewati.
             if (ny > barrier) return null
             x = nx
@@ -721,6 +788,8 @@ class GameEngine(private val random: Random = Random.Default) {
             H_LANES.firstOrNull { y <= it }?.let { if (it < barrier) barrier = it }
             rem--
             if (y == END_Y) return MoveResult(path, Cell(x, y), scored = true, steps = n - rem, barrier = barrier)
+            // Lubang menghentikan gerak di kotak itu.
+            if (obstacleAt(x, y)?.kind == ObstacleKind.HOLE) return MoveResult(path, Cell(x, y), steps = n - rem, barrier = barrier)
         }
         if (rem > 0) return null
         if (x == a.x && y == a.y) return null
@@ -747,6 +816,7 @@ class GameEngine(private val random: Random = Random.Default) {
             if (isWallX(nx)) { dx = -dx; continue }
             if (ny < 0 || ny >= ROWS) { dy = -dy; continue }
             if (occupiedBy(nx, ny, g.id)) return null
+            if (obstacleAt(nx, ny)?.kind == ObstacleKind.ROCK) return null
             val kk = key(nx, ny)
             val seen = visited.contains(kk)
             if (seen && !canRevisit(g, x, flag)) return null
@@ -756,6 +826,7 @@ class GameEngine(private val random: Random = Random.Default) {
             path.add(kk)
             rem--
             if (g.guardType == GuardType.V && y in H_LANES) flag = true
+            if (obstacleAt(x, y)?.kind == ObstacleKind.HOLE) return MoveResult(path, Cell(x, y), flag = flag, steps = n - rem)
         }
         if (rem > 0) return null
         if (x == g.x && y == g.y) return null

@@ -2,6 +2,7 @@ package com.retrobit.gobacksodoor.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
@@ -21,6 +22,7 @@ import com.retrobit.gobacksodoor.game.Facing
 import com.retrobit.gobacksodoor.game.GameEngine
 import com.retrobit.gobacksodoor.game.GuardType
 import com.retrobit.gobacksodoor.game.HAND_SIZE
+import com.retrobit.gobacksodoor.game.ObstacleKind
 import com.retrobit.gobacksodoor.game.Phase
 import com.retrobit.gobacksodoor.game.ROWS
 import com.retrobit.gobacksodoor.game.SetupTool
@@ -150,6 +152,7 @@ class GameView(context: Context) : View(context) {
         super.onDraw(canvas)
         drawTopBanner(canvas)
         drawBoard(canvas)
+        drawObstacles(canvas)
         drawPieces(canvas)
         drawActionArea(canvas)
         drawPiles(canvas)
@@ -279,10 +282,28 @@ class GameView(context: Context) : View(context) {
         boardLeft + (x + 1) * cell, boardTop + (y + 1) * cell,
     )
 
+    /** Latar papan (gambar referensi). Null jika aset tidak ada: pakai warna zona. */
+    private val boardBg: Bitmap? by lazy {
+        val id = resources.getIdentifier("board_bg", "drawable", context.packageName)
+        if (id == 0) null else BitmapFactory.decodeResource(resources, id)
+    }
+
     private fun drawBoard(canvas: Canvas) {
-        for (x in 0 until COLS) for (y in 0 until ROWS) {
-            fill.color = zoneColor(zoneOf(x, y))
-            canvas.drawRect(cellRect(x, y), fill)
+        val bg = boardBg
+        if (bg != null) {
+            canvas.drawBitmap(bg, null, RectF(boardLeft, boardTop, boardLeft + cell * COLS, boardTop + cell * ROWS), bitmapPaint)
+            // Zona start, garis batas, finish, dan baris coklat tetap terlihat di atas latar.
+            for (x in 0 until COLS) for (y in 0 until ROWS) {
+                val z = zoneOf(x, y)
+                if (z == Zone.WALL || z == Zone.FIELD) continue
+                fill.color = (zoneColor(z) and 0x00FFFFFF) or (120 shl 24)
+                canvas.drawRect(cellRect(x, y), fill)
+            }
+        } else {
+            for (x in 0 until COLS) for (y in 0 until ROWS) {
+                fill.color = zoneColor(zoneOf(x, y))
+                canvas.drawRect(cellRect(x, y), fill)
+            }
         }
         if (engine.phase == Phase.PLAY && engine.turn == Side.GUARD) {
             fill.color = Color.argb(120, 229, 57, 53)
@@ -309,6 +330,37 @@ class GameView(context: Context) : View(context) {
                 text.textSize = cell * 0.26f
                 drawCentered(canvas, res.steps.toString(), cx, cy, text)
                 text.color = Color.WHITE
+            }
+        }
+    }
+
+    /** Rintangan: lubang (gelap), batu (abu-abu), semak (hijau). */
+    private fun drawObstacles(canvas: Canvas) {
+        for (o in engine.obstacles) {
+            val cx = boardLeft + (o.x + 0.5f) * cell
+            val cy = boardTop + (o.y + 0.5f) * cell
+            val r = cell * 0.4f
+            when (o.kind) {
+                ObstacleKind.HOLE -> {
+                    fill.color = Color.rgb(120, 84, 40)
+                    canvas.drawOval(RectF(cx - r, cy - r * 0.7f, cx + r, cy + r * 0.7f), fill)
+                    fill.color = Color.rgb(30, 18, 6)
+                    canvas.drawOval(RectF(cx - r * 0.7f, cy - r * 0.45f, cx + r * 0.7f, cy + r * 0.45f), fill)
+                }
+                ObstacleKind.ROCK -> {
+                    fill.color = Color.rgb(120, 126, 132)
+                    canvas.drawOval(RectF(cx - r, cy - r * 0.6f, cx + r, cy + r * 0.7f), fill)
+                    fill.color = Color.rgb(176, 182, 188)
+                    canvas.drawOval(RectF(cx - r * 0.6f, cy - r * 0.5f, cx + r * 0.2f, cy - r * 0.05f), fill)
+                }
+                ObstacleKind.BUSH -> {
+                    fill.color = Color.rgb(46, 125, 50)
+                    canvas.drawCircle(cx - r * 0.4f, cy, r * 0.5f, fill)
+                    canvas.drawCircle(cx + r * 0.4f, cy, r * 0.5f, fill)
+                    canvas.drawCircle(cx, cy - r * 0.3f, r * 0.55f, fill)
+                    fill.color = Color.rgb(102, 187, 106)
+                    canvas.drawCircle(cx - r * 0.1f, cy - r * 0.4f, r * 0.2f, fill)
+                }
             }
         }
     }
@@ -341,6 +393,11 @@ class GameView(context: Context) : View(context) {
             borderPaint.color = if (p.side == Side.ATTACKER) Color.rgb(160, 205, 255) else Color.rgb(255, 170, 160)
             canvas.drawCircle(cx, cy, r, borderPaint)
             borderPaint.color = Color.WHITE
+            if (p.locked) {
+                // Bidak terkunci (jatuh ke lubang): diredupkan sampai giliran pemiliknya berikutnya.
+                fill.color = Color.argb(150, 70, 70, 70)
+                canvas.drawCircle(cx, cy, r, fill)
+            }
             if (engine.activeId == p.id) {
                 ringPaint.strokeWidth = cell * 0.06f
                 canvas.drawCircle(cx, cy, r + cell * 0.08f, ringPaint)
@@ -536,6 +593,7 @@ class GameView(context: Context) : View(context) {
 
     private fun usable(c: Card): Boolean = when {
         engine.owed != null -> true
+        c.owner != null && engine.ownerOf(c)?.locked == true -> false
         engine.pending != null -> c is Card.Evade && c.owner == engine.pending?.second?.char?.name
         engine.postMove != null -> c is Card.Star && c.owner == engine.pieceById(engine.postMove)?.char?.name
         c is Card.Star -> false

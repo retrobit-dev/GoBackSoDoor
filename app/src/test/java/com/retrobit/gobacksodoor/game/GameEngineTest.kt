@@ -19,7 +19,7 @@ class GameEngineTest {
 
     @Before
     fun setUp() {
-        e = GameEngine(Random(1))
+        e = GameEngine(Random(1), obstaclesOn = false)
         e.setupTool = SetupTool.ATTACKER
         listOf(1, 3, 5, 7, 9).forEach { e.onCell(it, BELOW_Y) }
         e.setupTool = SetupTool.GUARD
@@ -365,5 +365,62 @@ class GameEngineTest {
         e.turnFace()
         assertEquals(Facing.DOWN, guard("H1").facing)
         assertEquals(Side.GUARD, e.turn)
+    }
+
+    @Test
+    fun holeStopsAttackerAndLocksItUntilNextTurn() {
+        e.obstacles.add(Obstacle(1, 19, ObstacleKind.HOLE, 4))
+        setHand(Side.ATTACKER, Card.Move(1200, Dir.VERTICAL, "Slamet"), Card.Move(1201, Dir.CROSS, "Slamet"), Card.Move(1202, Dir.CROSS, "Slamet"))
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 19)                                 // lubang: gerak berhenti di sana (2 kotak)
+        assertEquals(Cell(1, 19), Cell(attacker("A1").x, attacker("A1").y))
+        assertEquals(2, attacker("A1").stamina)
+        assertEquals(Side.GUARD, e.turn)
+        e.skipTurn()                                    // giliran penjaga dilewati -> giliran penyerang berikutnya
+        assertEquals(Side.ATTACKER, e.turn)
+        assertTrue(attacker("A1").locked)
+        e.selectCard(hand(Side.ATTACKER)[0])            // Slamet terkunci: tidak bisa dipilih
+        assertNull(e.activeCard)
+        e.skipTurn()                                    // giliran penyerang lewat
+        e.skipTurn()                                    // giliran penjaga lewat
+        assertEquals(Side.ATTACKER, e.turn)
+        assertEquals(false, attacker("A1").locked)      // terbuka lagi pada giliran berikutnya
+    }
+
+    @Test
+    fun rockBlocksAttackerPath() {
+        e.obstacles.add(Obstacle(1, 19, ObstacleKind.ROCK, 4))
+        setHand(Side.ATTACKER, Card.Move(1210, Dir.VERTICAL, "Slamet"), Card.Move(1211, Dir.CROSS, "Slamet"), Card.Move(1212, Dir.CROSS, "Slamet"))
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 18)                                 // harus melewati batu di (1,19)
+        assertEquals(21, attacker("A1").y)
+        assertEquals(Side.ATTACKER, e.turn)
+    }
+
+    @Test
+    fun bushCostsOneExtraStaminaWhenPassed() {
+        e.obstacles.add(Obstacle(1, 20, ObstacleKind.BUSH, 4))
+        setHand(Side.ATTACKER, Card.Move(1220, Dir.VERTICAL, "Slamet"), Card.Move(1221, Dir.CROSS, "Slamet"), Card.Move(1222, Dir.CROSS, "Slamet"))
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 19)                                 // 2 kotak + 1 semak = 3 stamina
+        assertEquals(1, attacker("A1").stamina)
+        assertEquals(Side.GUARD, e.turn)
+    }
+
+    @Test
+    fun obstacleAppearsEachTurnOnFieldCell() {
+        val g = GameEngine(Random(5), obstaclesOn = true)
+        g.setupTool = SetupTool.ATTACKER
+        listOf(1, 3, 5, 7, 9).forEach { g.onCell(it, BELOW_Y) }
+        g.setupTool = SetupTool.GUARD
+        g.onCell(2, 1)
+        g.onCell(9, 7)
+        g.onCell(4, 13)
+        g.onCell(10, 19)
+        g.onCell(CENTER_X, 10)
+        g.skipTurn()
+        assertEquals(1, g.obstacles.size)
+        val o = g.obstacles[0]
+        assertEquals(Zone.FIELD, zoneOf(o.x, o.y))
     }
 }
