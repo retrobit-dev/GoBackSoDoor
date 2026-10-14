@@ -1,6 +1,7 @@
 package com.retrobit.gobacksodoor.ui
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.DashPathEffect
@@ -181,6 +182,9 @@ class GameView(context: Context) : View(context) {
     }
 
     /** Banner tim: avatar, nama, peran, dan mahkota (poin). */
+    private val clipPath = Path()
+    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
     private fun drawTeamBanner(canvas: Canvas, team: Team, r: RectF) {
         fill.color = Color.argb(160, 8, 12, 24)
         canvas.drawRoundRect(r, 18f, 18f, fill)
@@ -194,10 +198,20 @@ class GameView(context: Context) : View(context) {
         val avY = r.centerY()
         fill.color = if (team == Team.A) Color.rgb(33, 150, 243) else Color.rgb(229, 57, 53)
         canvas.drawCircle(avX, avY, avR, fill)
+        val avatar = CharacterArt.get(context, if (team == Team.A) "ekot" else "togar")
+        if (avatar != null) {
+            canvas.save()
+            clipPath.reset()
+            clipPath.addCircle(avX, avY, avR, Path.Direction.CW)
+            canvas.clipPath(clipPath)
+            canvas.drawBitmap(avatar, null, RectF(avX - avR, avY - avR, avX + avR, avY + avR), bitmapPaint)
+            canvas.restore()
+        } else {
+            text.textSize = avR * 1.0f
+            drawCentered(canvas, team.name, avX, avY, text)
+        }
         borderPaint.strokeWidth = 3f
         canvas.drawCircle(avX, avY, avR, borderPaint)
-        text.textSize = avR * 1.0f
-        drawCentered(canvas, team.name, avX, avY, text)
 
         val textX = avX + avR + r.height() * 0.15f
         val role = if (engine.attTeam == team) "Penyerang" else "Penjaga"
@@ -309,20 +323,24 @@ class GameView(context: Context) : View(context) {
             canvas.drawCircle(cx + 2f, cy + 3f, r, fill)
 
             fill.color = if (p.side == Side.ATTACKER) Color.rgb(41, 121, 255) else Color.rgb(229, 57, 53)
-            if (p.side == Side.ATTACKER) {
-                canvas.drawCircle(cx, cy, r, fill)
+            canvas.drawCircle(cx, cy, r, fill)
+            val art = CharacterArt.get(context, p.char.name)
+            if (art != null) {
+                canvas.save()
+                clipPath.reset()
+                clipPath.addCircle(cx, cy, r, Path.Direction.CW)
+                canvas.clipPath(clipPath)
+                canvas.drawBitmap(art, null, RectF(cx - r, cy - r, cx + r, cy + r), bitmapPaint)
+                canvas.restore()
             } else {
-                canvas.drawRoundRect(RectF(cx - r, cy - r, cx + r, cy + r), r * 0.3f, r * 0.3f, fill)
+                fill.color = Color.argb(70, 255, 255, 255)
+                canvas.drawCircle(cx, cy - r * 0.2f, r * 0.55f, fill)
             }
-            fill.color = Color.argb(70, 255, 255, 255)
-            canvas.drawCircle(cx, cy - r * 0.2f, r * 0.55f, fill)
 
             borderPaint.strokeWidth = cell * 0.05f
-            if (p.side == Side.ATTACKER) {
-                canvas.drawCircle(cx, cy, r, borderPaint)
-            } else {
-                canvas.drawRoundRect(RectF(cx - r, cy - r, cx + r, cy + r), r * 0.3f, r * 0.3f, borderPaint)
-            }
+            borderPaint.color = if (p.side == Side.ATTACKER) Color.rgb(160, 205, 255) else Color.rgb(255, 170, 160)
+            canvas.drawCircle(cx, cy, r, borderPaint)
+            borderPaint.color = Color.WHITE
             if (engine.activeId == p.id) {
                 ringPaint.strokeWidth = cell * 0.06f
                 canvas.drawCircle(cx, cy, r + cell * 0.08f, ringPaint)
