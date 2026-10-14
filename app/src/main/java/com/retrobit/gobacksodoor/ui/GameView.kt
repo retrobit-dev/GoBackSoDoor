@@ -119,7 +119,7 @@ class GameView(context: Context) : View(context) {
     private val msgPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(225, 225, 235) }
 
     init {
-        setBackgroundColor(Color.rgb(18, 24, 38))
+        setBackgroundColor(Color.rgb(28, 64, 140))
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -271,12 +271,12 @@ class GameView(context: Context) : View(context) {
     // ---- Papan ----
 
     private fun zoneColor(z: Zone): Int = when (z) {
-        Zone.WALL -> Color.rgb(70, 50, 30)
-        Zone.START -> Color.rgb(102, 187, 106)
-        Zone.BELOW -> Color.rgb(141, 110, 99)
+        Zone.WALL -> Color.rgb(46, 110, 58)
+        Zone.START -> Color.rgb(98, 193, 90)
+        Zone.BELOW -> Color.rgb(236, 206, 140)
         Zone.END -> Color.rgb(255, 213, 79)
-        Zone.LANE -> Color.rgb(255, 236, 200)
-        Zone.FIELD -> Color.rgb(232, 210, 165)
+        Zone.LANE -> Color.rgb(246, 226, 178)
+        Zone.FIELD -> Color.rgb(140, 206, 96)
     }
 
     /** Saat giliran penjaga, papan dibalik: garis start berada di atas. */
@@ -545,9 +545,10 @@ class GameView(context: Context) : View(context) {
             fill.color = when {
                 !b.enabled -> Color.rgb(45, 45, 55)
                 b.active -> Color.rgb(255, 193, 7)
-                else -> Color.rgb(40, 84, 150)
+                else -> Color.rgb(44, 111, 214)
             }
-            canvas.drawRoundRect(b.rect, 16f, 16f, fill)
+            canvas.drawRoundRect(b.rect, 22f, 22f, fill)
+            canvas.drawRoundRect(b.rect, 22f, 22f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.rgb(20, 33, 90); strokeWidth = 5f })
             text.color = when {
                 b.active -> Color.BLACK
                 b.enabled -> Color.WHITE
