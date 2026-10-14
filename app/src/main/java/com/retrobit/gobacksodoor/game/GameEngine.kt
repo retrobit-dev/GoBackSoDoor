@@ -56,19 +56,25 @@ val GUARD_ROSTER = listOf(
 
 sealed class Card {
     abstract val uid: Int
+    /** Nama karakter pemilik kartu; null untuk kartu netral (stamina dan ambil). */
+    abstract val owner: String?
 
     /** Kartu arah tanpa angka; jumlah kotak = stamina yang dibayar (1 per kotak). */
-    data class Move(override val uid: Int, val dir: Dir) : Card()
+    data class Move(override val uid: Int, val dir: Dir, override val owner: String) : Card()
     /** Kartu sentuh (penjaga), biaya 3. */
-    data class Touch(override val uid: Int) : Card()
+    data class Touch(override val uid: Int, override val owner: String) : Card()
     /** Kartu menghindar (penyerang), biaya 3. */
-    data class Evade(override val uid: Int) : Card()
+    data class Evade(override val uid: Int, override val owner: String) : Card()
     /** Kartu bintang, biaya 5. Efek dari karakter (belum aktif). */
-    data class Star(override val uid: Int, val id: Int) : Card()
+    data class Star(override val uid: Int, val id: Int, override val owner: String) : Card()
     /** Kartu stamina ±N, biaya 0. Pilih karakter tujuan di papan. */
-    data class Stamina(override val uid: Int, val value: Int) : Card()
+    data class Stamina(override val uid: Int, val value: Int) : Card() {
+        override val owner: String? get() = null
+    }
     /** Kartu ambil +N, biaya 0. Mengambil N kartu dari teratas deck. */
-    data class Draw(override val uid: Int, val value: Int) : Card()
+    data class Draw(override val uid: Int, val value: Int) : Card() {
+        override val owner: String? get() = null
+    }
 }
 
 /** Pemain di papan: penyerang atau penjaga, lengkap dengan karakter dan stamina. */
@@ -199,9 +205,14 @@ class GameEngine(private val random: Random = Random.Default) {
 
     private fun buildDeck(side: Side): Deck {
         val d = Deck()
-        for (dir in Dir.values()) repeat(5) { d.deck.add(Card.Move(nextUid(), dir)) }
-        repeat(5) { d.deck.add(if (side == Side.ATTACKER) Card.Evade(nextUid()) else Card.Touch(nextUid())) }
-        for (i in 1..5) d.deck.add(Card.Star(nextUid(), i))
+        val roster = if (side == Side.ATTACKER) ATTACKER_ROSTER else GUARD_ROSTER
+        // 25 kartu karakter (15 arah, 5 sentuh/hindar, 5 bintang). Tiap karakter mendapat 5 kartu.
+        val makers = mutableListOf<(Int, String) -> Card>()
+        for (dir in Dir.values()) repeat(5) { makers.add { uid, owner -> Card.Move(uid, dir, owner) } }
+        repeat(5) { makers.add { uid, owner -> if (side == Side.ATTACKER) Card.Evade(uid, owner) else Card.Touch(uid, owner) } }
+        for (i in 1..5) makers.add { uid, owner -> Card.Star(uid, i, owner) }
+        makers.shuffle(random)
+        makers.forEachIndexed { i, mk -> d.deck.add(mk(nextUid(), roster[i / 5].name)) }
         for (v in 1..5) d.deck.add(Card.Stamina(nextUid(), v))
         for (n in listOf(1, 1, 2, 2, 3)) d.deck.add(Card.Draw(nextUid(), n))
         d.deck.shuffle(random)
@@ -342,7 +353,7 @@ class GameEngine(private val random: Random = Random.Default) {
     /** Setelah kartu gerak: jika bisa, tahan giliran agar bisa memakai bintang. */
     private fun afterMove(piece: Piece, text: String) {
         val hand = decks[turn]?.hand ?: emptyList<Card>()
-        if (piece.stamina >= STAR_COST && hand.any { it is Card.Star }) {
+        if (piece.stamina >= STAR_COST && hand.any { it is Card.Star && it.owner == piece.char.name }) {
             postMove = piece.id
             activeCard = null
             message = "$text Pakai bintang (5 stamina) atau akhiri giliran."
@@ -396,7 +407,7 @@ class GameEngine(private val random: Random = Random.Default) {
         if (attackers.size == 5 && guards.size == 5) {
             phase = Phase.PLAY
             turn = Side.ATTACKER
-            message = "Pemasangan selesai. Giliran ${turnName()}: pilih karakter, ambil kartu, lalu mainkan kartu."
+            message = "Pemasangan selesai. Giliran ${turnName()}: ambil kartu, lalu mainkan kartu karakter."
         }
     }
 
@@ -434,50 +445,69 @@ class GameEngine(private val random: Random = Random.Default) {
             applyStamina(card, target)
             return
         }
-        val piece = pieceAt(x, y)
-        if (piece != null && piece.side == turn) { selectPiece(piece); return }
         if (turn == Side.ATTACKER) attackerAct(x, y) else guardAct(x, y)
     }
 
-    private fun selectPiece(p: Piece) {
-        if (activeId == p.id) {
-            message = "${p.char.name} dipilih."
-            return
-        }
-        // Memilih karakter lain membatalkan pilihan sebelumnya (termasuk kartu yang dipilih).
-        activeId = p.id
-        activeCard = null
-        if (p.side == Side.GUARD && p.visited == null) p.visited = mutableSetOf(key(p.x, p.y))
-        message = "${p.char.name} dipilih (stamina ${p.stamina}). Pilih kartu, lalu ketuk kotak tujuan."
+    /** Pemilik kartu karakter di papan (null jika karakter sudah tidak di papan). */
+    fun ownerOf(card: Card): Piece? {
+        val n = card.owner ?: return null
+        return (attackers + guards).firstOrNull { it.char.name == n }
     }
 
-    /** Pilih kartu di tangan (ketuk kartu). */
+    /** Kartu menghindar di tangan penyerang untuk karakter yang sedang disentuh. */
+    fun evadeCard(): Card.Evade? {
+        val a = pending?.second ?: return null
+        return decks[Side.ATTACKER]?.hand?.firstOrNull { it is Card.Evade && it.owner == a.char.name } as? Card.Evade
+    }
+
+    /** Karakter dipilih lewat kartunya (tidak ada pemilihan langsung di papan). */
+    private fun selectPiece(p: Piece) {
+        activeId = p.id
+        if (p.side == Side.GUARD && p.visited == null) p.visited = mutableSetOf(key(p.x, p.y))
+    }
+
+    /** Pilih kartu di tangan (ketuk kartu). Kartu karakter langsung memilih karakter pemiliknya. */
     fun selectCard(card: Card) {
         if (owed != null) { discardCard(card); return }
         if (phase != Phase.PLAY) return
-        if (pending != null) {
-            if (card is Card.Evade) evade() else message = "Pilih Hindar atau Terima Sentuhan dulu."
+        val pend = pending
+        if (pend != null) {
+            if (card is Card.Evade && card.owner == pend.second.char.name) evade()
+            else message = "Pilih Hindar untuk ${pend.second.char.name}, atau terima sentuhan."
             return
         }
-        if (postMove != null) {
-            if (card is Card.Star) useStar(card) else message = "Setelah bergerak hanya bintang yang bisa dipakai. Tekan Akhiri Giliran."
+        val after = pieceById(postMove)
+        if (after != null) {
+            if (card is Card.Star && card.owner == after.char.name) useStar(card)
+            else message = "Setelah bergerak hanya bintang ${after.char.name} yang bisa dipakai. Tekan Akhiri Giliran."
             return
         }
         when {
-            card is Card.Evade -> message = "Kartu menghindar hanya dipakai penyerang saat diserang."
+            card is Card.Evade -> message = "Kartu menghindar hanya dipakai saat karakter itu disentuh."
             card is Card.Touch && turn != Side.GUARD -> message = "Kartu sentuh hanya dipakai penjaga."
-            card is Card.Star -> message = "Kartu bintang dipakai setelah kartu gerak."
+            card is Card.Star -> message = "Kartu bintang dipakai setelah kartu gerak karakter yang sama."
             card is Card.Draw -> playDraw(card)
             card is Card.Stamina -> {
                 activeCard = if (activeCard == card) null else card
                 message = "Ketuk karakter tujuan: sekutu +${card.value}, lawan −${card.value} stamina."
             }
-            activeId == null -> message = "Pilih karakter dulu."
-            else -> {
-                activeCard = if (activeCard == card) null else card
-                message = if (activeCard != null) "Kartu dipilih. Ketuk kotak tujuan untuk bergerak." else "Kartu dibatalkan."
-            }
+            else -> selectCharacterCard(card)
         }
+    }
+
+    private fun selectCharacterCard(card: Card) {
+        val p = ownerOf(card)
+        if (p == null) { message = "Karakter ${card.owner} tidak ada di papan."; return }
+        if (p.side != turn) { message = "${p.char.name} bukan milik giliran ini."; return }
+        if (activeCard == card) {
+            activeCard = null
+            message = "Kartu dibatalkan."
+            return
+        }
+        selectPiece(p)
+        activeCard = card
+        message = if (card is Card.Touch) "${p.char.name} dipilih. Ketuk penyerang di area merah."
+        else "${p.char.name} dipilih. Ketuk kotak tujuan untuk bergerak."
     }
 
     /** Ambil 0..n kartu di awal giliran (sekali per giliran, sampai tangan HAND_SIZE). */
@@ -491,7 +521,7 @@ class GameEngine(private val random: Random = Random.Default) {
             got++
         }
         drew = true
-        message = "Mengambil $got kartu. Tangan ${hand.size}/$HAND_SIZE. Pilih karakter, lalu kartu."
+        message = "Mengambil $got kartu. Tangan ${hand.size}/$HAND_SIZE. Pilih kartu karakter."
     }
 
     private fun attackerAct(x: Int, y: Int) {
@@ -548,7 +578,7 @@ class GameEngine(private val random: Random = Random.Default) {
     private fun declareTouch(g: Piece, a: Piece, card: Card.Touch) {
         g.stamina -= TOUCH_COST
         consume(Side.GUARD, card)
-        val hasEvade = decks[Side.ATTACKER]?.hand?.any { it is Card.Evade } ?: false
+        val hasEvade = decks[Side.ATTACKER]?.hand?.any { it is Card.Evade && it.owner == a.char.name } ?: false
         if (!hasEvade || a.stamina < TOUCH_COST) {
             roundOver("Penjaga ${g.char.name} menyentuh ${a.char.name}. Babak selesai.")
             return
@@ -560,8 +590,8 @@ class GameEngine(private val random: Random = Random.Default) {
     /** Penyerang membalas sentuhan dengan kartu menghindar (biaya 3). */
     fun evade() {
         val (_, a) = pending ?: return
-        val card = decks[Side.ATTACKER]?.hand?.firstOrNull { it is Card.Evade }
-        if (card == null) { message = "Tidak punya kartu menghindar."; return }
+        val card = evadeCard()
+        if (card == null) { message = "Tidak punya kartu menghindar untuk ${a.char.name}."; return }
         if (a.stamina < TOUCH_COST) { message = "Stamina tidak cukup untuk menghindar."; return }
         a.stamina -= TOUCH_COST
         consume(Side.ATTACKER, card)

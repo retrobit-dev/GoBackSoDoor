@@ -8,11 +8,15 @@ import org.junit.Before
 import org.junit.Test
 import kotlin.random.Random
 
+/**
+ * Pemasangan standar: A1 Slamet, A2 Sutan, A3 Ekot, A4 Wayan, A5 Andi (baris coklat);
+ * H1 Togar, H2 Dalle, H3 Pitung, H4 Lalu (garis batas baris), V1 Wanggai (kolom tengah).
+ * Karakter dipilih lewat kartunya: kartu dengan nama karakter itu.
+ */
 class GameEngineTest {
 
     private lateinit var e: GameEngine
 
-    /** Pemasangan standar: penyerang di baris coklat, penjaga di garis batas. */
     @Before
     fun setUp() {
         e = GameEngine(Random(1))
@@ -48,10 +52,18 @@ class GameEngineTest {
     }
 
     @Test
+    fun combatCardsBelongToFiveCharactersEach() {
+        val d = e.decks.getValue(Side.ATTACKER)
+        val combat = (d.deck + d.hand).filter { it.owner != null }
+        assertEquals(25, combat.size)
+        assertEquals(ATTACKER_ROSTER.map { it.name }.toSet(), combat.mapNotNull { it.owner }.toSet())
+        ATTACKER_ROSTER.forEach { c -> assertEquals(5, combat.count { it.owner == c.name }) }
+    }
+
+    @Test
     fun moveCostsOneStaminaPerStep() {
-        setHand(Side.ATTACKER, Card.Move(900, Dir.VERTICAL), Card.Move(901, Dir.HORIZONTAL), Card.Move(902, Dir.CROSS))
-        e.onCell(1, BELOW_Y)                 // pilih penyerang A1
-        e.selectCard(hand(Side.ATTACKER)[0]) // atas-bawah
+        setHand(Side.ATTACKER, Card.Move(900, Dir.VERTICAL, "Slamet"), Card.Move(901, Dir.HORIZONTAL, "Slamet"), Card.Move(902, Dir.CROSS, "Slamet"))
+        e.selectCard(hand(Side.ATTACKER)[0]) // Slamet, atas-bawah
         e.onCell(1, 19)                      // 2 kotak ke atas; garis batas (1,19) ikut dihitung
         assertEquals(Cell(1, 19), Cell(attacker("A1").x, attacker("A1").y))
         assertEquals(2, attacker("A1").stamina)
@@ -63,8 +75,7 @@ class GameEngineTest {
         val a = attacker("A1")
         a.x = 11
         a.y = 10
-        setHand(Side.ATTACKER, Card.Move(910, Dir.HORIZONTAL), Card.Move(911, Dir.CROSS), Card.Move(912, Dir.CROSS))
-        e.onCell(11, 10)
+        setHand(Side.ATTACKER, Card.Move(910, Dir.HORIZONTAL, "Slamet"), Card.Move(911, Dir.CROSS, "Slamet"), Card.Move(912, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(8, 10)                      // kanan 3 memantul di dinding (12,10), tanpa biaya angka
         assertEquals(8, a.x)
@@ -79,8 +90,7 @@ class GameEngineTest {
         a.y = 12
         guard("H1").x = 1
         guard("H1").y = 13
-        setHand(Side.ATTACKER, Card.Move(920, Dir.VERTICAL), Card.Move(921, Dir.CROSS), Card.Move(922, Dir.CROSS))
-        e.onCell(1, 12)
+        setHand(Side.ATTACKER, Card.Move(920, Dir.VERTICAL, "Slamet"), Card.Move(921, Dir.CROSS, "Slamet"), Card.Move(922, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 13)
         assertEquals(12, a.y)
@@ -90,9 +100,8 @@ class GameEngineTest {
     @Test
     fun starHoldsTurnAfterMoveAndReturnsToDeck() {
         attacker("A1").stamina = 6
-        val star = Card.Star(930, 1)
-        setHand(Side.ATTACKER, Card.Move(931, Dir.VERTICAL), star, Card.Move(932, Dir.CROSS))
-        e.onCell(1, BELOW_Y)
+        val star = Card.Star(930, 1, "Slamet")
+        setHand(Side.ATTACKER, Card.Move(931, Dir.VERTICAL, "Slamet"), star, Card.Move(932, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 20)
         assertEquals(Side.ATTACKER, e.turn)
@@ -103,6 +112,18 @@ class GameEngineTest {
     }
 
     @Test
+    fun starOfAnotherCharacterCannotBeUsed() {
+        attacker("A1").stamina = 6
+        val star = Card.Star(933, 1, "Sutan")
+        setHand(Side.ATTACKER, Card.Move(934, Dir.VERTICAL, "Slamet"), star)
+        e.selectCard(hand(Side.ATTACKER)[0])
+        e.onCell(1, 20)
+        assertEquals("A1", e.postMove)
+        e.selectCard(star)
+        assertEquals(Side.ATTACKER, e.turn)          // bintang milik Sutan tidak bisa dipakai Slamet
+    }
+
+    @Test
     fun touchThenEvadeCostsThreeEach() {
         val v = guard("V1")
         v.stamina = 5
@@ -110,10 +131,9 @@ class GameEngineTest {
         attacker("A1").y = 10
         e.skipTurn()                          // giliran penyerang dilewati -> penjaga
         assertEquals(Side.GUARD, e.turn)
-        setHand(Side.ATTACKER, Card.Evade(940), Card.Move(941, Dir.VERTICAL), Card.Move(942, Dir.CROSS))
-        setHand(Side.GUARD, Card.Touch(943), Card.Move(944, Dir.VERTICAL), Card.Move(945, Dir.CROSS))
-        e.onCell(6, 10)
-        e.selectCard(hand(Side.GUARD)[0])
+        setHand(Side.ATTACKER, Card.Evade(940, "Slamet"), Card.Move(941, Dir.VERTICAL, "Slamet"), Card.Move(942, Dir.CROSS, "Slamet"))
+        setHand(Side.GUARD, Card.Touch(943, "Wanggai"), Card.Move(944, Dir.VERTICAL, "Wanggai"), Card.Move(945, Dir.CROSS, "Wanggai"))
+        e.selectCard(hand(Side.GUARD)[0])     // Wanggai (V1) dipilih lewat kartu sentuh
         e.onCell(7, 10)
         assertNotNull(e.pending)
         assertEquals(3, v.stamina)               // 5 + 1 (awal giliran) - 3 (sentuh)
@@ -124,14 +144,32 @@ class GameEngineTest {
     }
 
     @Test
+    fun evadeMustBelongToTouchedCharacter() {
+        attacker("A1").x = 7
+        attacker("A1").y = 10
+        e.skipTurn()
+        val wrong = Card.Evade(945, "Sutan")
+        val right = Card.Evade(946, "Slamet")
+        setHand(Side.ATTACKER, wrong, right, Card.Move(947, Dir.CROSS, "Slamet"))
+        setHand(Side.GUARD, Card.Touch(948, "Wanggai"), Card.Move(949, Dir.VERTICAL, "Wanggai"), Card.Move(950, Dir.CROSS, "Wanggai"))
+        e.selectCard(hand(Side.GUARD)[0])
+        e.onCell(7, 10)
+        assertNotNull(e.pending)
+        assertEquals(right, e.evadeCard())
+        e.selectCard(wrong)                      // hindar milik Sutan tidak berlaku untuk Slamet
+        assertNotNull(e.pending)
+        e.selectCard(right)
+        assertNull(e.pending)
+    }
+
+    @Test
     fun touchWithoutEvadeEndsRound() {
         attacker("A1").x = 7
         attacker("A1").y = 10
         attacker("A1").stamina = 2
         e.skipTurn()
-        setHand(Side.ATTACKER, Card.Move(953, Dir.VERTICAL), Card.Move(954, Dir.CROSS), Card.Move(955, Dir.HORIZONTAL))
-        setHand(Side.GUARD, Card.Touch(950), Card.Move(951, Dir.VERTICAL), Card.Move(952, Dir.CROSS))
-        e.onCell(6, 10)
+        setHand(Side.ATTACKER, Card.Move(953, Dir.VERTICAL, "Slamet"), Card.Move(954, Dir.CROSS, "Slamet"), Card.Move(955, Dir.HORIZONTAL, "Slamet"))
+        setHand(Side.GUARD, Card.Touch(950, "Wanggai"), Card.Move(951, Dir.VERTICAL, "Wanggai"), Card.Move(952, Dir.CROSS, "Wanggai"))
         e.selectCard(hand(Side.GUARD)[0])
         e.onCell(7, 10)
         assertEquals(Phase.OVER, e.phase)
@@ -141,11 +179,10 @@ class GameEngineTest {
     fun excessCardsMustBeDiscardedAtTurnEnd() {
         setHand(
             Side.ATTACKER,
-            Card.Move(960, Dir.VERTICAL), Card.Move(961, Dir.CROSS), Card.Move(962, Dir.HORIZONTAL),
-            Card.Move(963, Dir.VERTICAL), Card.Move(964, Dir.CROSS),
+            Card.Move(960, Dir.VERTICAL, "Slamet"), Card.Move(961, Dir.CROSS, "Slamet"), Card.Move(962, Dir.HORIZONTAL, "Slamet"),
+            Card.Move(963, Dir.VERTICAL, "Slamet"), Card.Move(964, Dir.CROSS, "Slamet"),
         )
         // Tangan 5: setelah bermain 1 kartu tersisa 4, jadi wajib buang 1.
-        e.onCell(1, BELOW_Y)
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 20)
         assertEquals(Side.ATTACKER, e.turn)
@@ -158,7 +195,7 @@ class GameEngineTest {
 
     @Test
     fun chooseDrawFillsUpToThreeOncePerTurn() {
-        setHand(Side.ATTACKER, Card.Move(970, Dir.VERTICAL))
+        setHand(Side.ATTACKER, Card.Move(970, Dir.VERTICAL, "Slamet"))
         e.chooseDraw(5)
         assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
         val before = hand(Side.ATTACKER).size
@@ -170,8 +207,7 @@ class GameEngineTest {
     fun drawCardTakesTopCardsAndKeepsTurn() {
         val d = e.decks.getValue(Side.ATTACKER)
         val top = d.deck.takeLast(2)
-        setHand(Side.ATTACKER, Card.Draw(980, 2), Card.Move(981, Dir.VERTICAL))
-        e.onCell(1, BELOW_Y)
+        setHand(Side.ATTACKER, Card.Draw(980, 2), Card.Move(981, Dir.VERTICAL, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         assertEquals(Side.ATTACKER, e.turn)           // tidak mengakhiri giliran
         assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
@@ -184,8 +220,7 @@ class GameEngineTest {
 
     @Test
     fun drawThenEndTurnWithTooManyCardsRequiresDiscard() {
-        setHand(Side.ATTACKER, Card.Draw(985, 3), Card.Move(986, Dir.VERTICAL), Card.Move(987, Dir.CROSS))
-        e.onCell(1, BELOW_Y)
+        setHand(Side.ATTACKER, Card.Draw(985, 3), Card.Move(986, Dir.VERTICAL, "Slamet"), Card.Move(987, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])          // tangan 2 + 3 = 5
         assertEquals(5, hand(Side.ATTACKER).size)
         e.skipTurn()                                  // akhiri giliran -> wajib buang 2
@@ -201,8 +236,7 @@ class GameEngineTest {
     fun staminaCardTargetsOwnOrOpponent() {
         e.skipTurn()                          // penjaga
         guard("H1").stamina = 4
-        setHand(Side.GUARD, Card.Stamina(990, 3), Card.Move(991, Dir.VERTICAL), Card.Move(992, Dir.CROSS))
-        e.onCell(2, 1)
+        setHand(Side.GUARD, Card.Stamina(990, 3), Card.Move(991, Dir.VERTICAL, "Togar"), Card.Move(992, Dir.CROSS, "Togar"))
         e.selectCard(hand(Side.GUARD)[0])
         e.onCell(2, 1)                        // +3 untuk karakter sendiri
         assertEquals(7, guard("H1").stamina)
@@ -215,8 +249,7 @@ class GameEngineTest {
         a.y = 2
         a.stamina = 4
         e.scores[Team.A] = 4
-        setHand(Side.ATTACKER, Card.Move(1000, Dir.VERTICAL), Card.Move(1001, Dir.CROSS), Card.Move(1002, Dir.CROSS))
-        e.onCell(1, 2)
+        setHand(Side.ATTACKER, Card.Move(1000, Dir.VERTICAL, "Slamet"), Card.Move(1001, Dir.CROSS, "Slamet"), Card.Move(1002, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 0)
         assertEquals(Phase.WON, e.phase)
@@ -228,8 +261,7 @@ class GameEngineTest {
     fun guardCrossCardMovesOrthogonally() {
         // Kartu silang untuk penjaga bergerak ortogonal (tidak diagonal).
         e.skipTurn()
-        setHand(Side.GUARD, Card.Move(1010, Dir.CROSS), Card.Move(1011, Dir.VERTICAL), Card.Move(1012, Dir.CROSS))
-        e.onCell(2, 1)
+        setHand(Side.GUARD, Card.Move(1010, Dir.CROSS, "Togar"), Card.Move(1011, Dir.VERTICAL, "Togar"), Card.Move(1012, Dir.CROSS, "Togar"))
         e.selectCard(hand(Side.GUARD)[0])
         e.onCell(3, 1)
         assertEquals(3, guard("H1").x)
@@ -238,8 +270,7 @@ class GameEngineTest {
 
     @Test
     fun stepsAreChosenByDestinationCell() {
-        setHand(Side.ATTACKER, Card.Move(1100, Dir.VERTICAL), Card.Move(1101, Dir.CROSS), Card.Move(1102, Dir.CROSS))
-        e.onCell(1, BELOW_Y)
+        setHand(Side.ATTACKER, Card.Move(1100, Dir.VERTICAL, "Slamet"), Card.Move(1101, Dir.CROSS, "Slamet"), Card.Move(1102, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 20)                                // 1 kotak
         assertEquals(3, attacker("A1").stamina)        // 4 - 1
@@ -247,19 +278,19 @@ class GameEngineTest {
     }
 
     @Test
-    fun selectingAnotherCharacterCancelsCardSelection() {
-        setHand(Side.ATTACKER, Card.Move(1110, Dir.VERTICAL), Card.Move(1111, Dir.CROSS), Card.Move(1112, Dir.CROSS))
-        e.onCell(1, BELOW_Y)
+    fun selectingAnotherCharacterCardSwitchesCharacter() {
+        setHand(Side.ATTACKER, Card.Move(1110, Dir.VERTICAL, "Slamet"), Card.Move(1111, Dir.CROSS, "Sutan"), Card.Move(1112, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
+        assertEquals("A1", e.activeId)
         assertNotNull(e.activeCard)
-        e.onCell(3, BELOW_Y)                           // pilih penyerang lain
+        e.selectCard(hand(Side.ATTACKER)[1])           // kartu Sutan
         assertEquals("A2", e.activeId)
-        assertNull(e.activeCard)
+        assertEquals(hand(Side.ATTACKER)[1], e.activeCard)
     }
 
     @Test
     fun discardCardMovesHandCardToDiscardPile() {
-        setHand(Side.ATTACKER, Card.Move(1120, Dir.VERTICAL), Card.Move(1121, Dir.CROSS), Card.Move(1122, Dir.CROSS))
+        setHand(Side.ATTACKER, Card.Move(1120, Dir.VERTICAL, "Slamet"), Card.Move(1121, Dir.CROSS, "Slamet"), Card.Move(1122, Dir.CROSS, "Slamet"))
         val before = e.decks.getValue(Side.ATTACKER).discard.size
         e.discardCard(hand(Side.ATTACKER)[0])
         assertEquals(2, hand(Side.ATTACKER).size)
@@ -271,8 +302,7 @@ class GameEngineTest {
     fun attackerCannotJumpOverBoundaryLanes() {
         // Dari baris coklat (y=21) ke y=18 harus melewati garis batas y=19 dengan langkah: 3 kotak.
         attacker("A1").stamina = 4
-        setHand(Side.ATTACKER, Card.Move(1130, Dir.VERTICAL), Card.Move(1131, Dir.CROSS), Card.Move(1132, Dir.CROSS))
-        e.onCell(1, BELOW_Y)
+        setHand(Side.ATTACKER, Card.Move(1130, Dir.VERTICAL, "Slamet"), Card.Move(1131, Dir.CROSS, "Slamet"), Card.Move(1132, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 18)
         assertEquals(Cell(1, 18), Cell(attacker("A1").x, attacker("A1").y))
@@ -296,9 +326,8 @@ class GameEngineTest {
     @Test
     fun guardOnBoundaryTurnsFaceWithAnyMoveCard() {
         e.skipTurn()                                   // penjaga
-        setHand(Side.GUARD, Card.Move(1140, Dir.CROSS), Card.Move(1141, Dir.VERTICAL), Card.Move(1142, Dir.HORIZONTAL))
-        e.onCell(6, 10)                                // V1 di kolom tengah (garis batas)
-        e.selectCard(hand(Side.GUARD)[0])              // kartu silang
+        setHand(Side.GUARD, Card.Move(1140, Dir.CROSS, "Wanggai"), Card.Move(1141, Dir.VERTICAL, "Wanggai"), Card.Move(1142, Dir.HORIZONTAL, "Wanggai"))
+        e.selectCard(hand(Side.GUARD)[0])              // Wanggai (V1) di kolom tengah, garis batas
         e.turnFace()
         assertEquals(Facing.LEFT, guard("V1").facing)
         assertEquals(Side.ATTACKER, e.turn)            // memakan giliran
@@ -308,8 +337,7 @@ class GameEngineTest {
     fun guardOffBoundaryCannotTurnFace() {
         e.skipTurn()
         guard("V1").x = 5                              // bukan garis batas
-        setHand(Side.GUARD, Card.Move(1150, Dir.CROSS), Card.Move(1151, Dir.VERTICAL), Card.Move(1152, Dir.HORIZONTAL))
-        e.onCell(5, 10)
+        setHand(Side.GUARD, Card.Move(1150, Dir.CROSS, "Wanggai"), Card.Move(1151, Dir.VERTICAL, "Wanggai"), Card.Move(1152, Dir.HORIZONTAL, "Wanggai"))
         e.selectCard(hand(Side.GUARD)[0])
         e.turnFace()
         assertEquals(Facing.RIGHT, guard("V1").facing)
@@ -322,8 +350,7 @@ class GameEngineTest {
         a.x = 1
         a.y = 18
         a.barrier = 19                                 // sudah melewati garis batas baris 19
-        setHand(Side.ATTACKER, Card.Move(1160, Dir.VERTICAL), Card.Move(1161, Dir.CROSS), Card.Move(1162, Dir.CROSS))
-        e.onCell(1, 18)
+        setHand(Side.ATTACKER, Card.Move(1160, Dir.VERTICAL, "Slamet"), Card.Move(1161, Dir.CROSS, "Slamet"), Card.Move(1162, Dir.CROSS, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 20)                                // kembali ke baris 20 dilarang
         assertEquals(18, a.y)
@@ -333,9 +360,8 @@ class GameEngineTest {
     @Test
     fun guardRowCannotTurnFace() {
         e.skipTurn()
-        setHand(Side.GUARD, Card.Move(1170, Dir.CROSS), Card.Move(1171, Dir.VERTICAL), Card.Move(1172, Dir.HORIZONTAL))
-        e.onCell(2, 1)                                 // H1 penjaga baris
-        e.selectCard(hand(Side.GUARD)[0])
+        setHand(Side.GUARD, Card.Move(1170, Dir.CROSS, "Togar"), Card.Move(1171, Dir.VERTICAL, "Togar"), Card.Move(1172, Dir.HORIZONTAL, "Togar"))
+        e.selectCard(hand(Side.GUARD)[0])              // Togar (H1) penjaga baris
         e.turnFace()
         assertEquals(Facing.DOWN, guard("H1").facing)
         assertEquals(Side.GUARD, e.turn)

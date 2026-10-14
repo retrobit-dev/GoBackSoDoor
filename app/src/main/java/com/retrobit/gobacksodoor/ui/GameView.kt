@@ -382,7 +382,7 @@ class GameView(context: Context) : View(context) {
         Phase.SETUP -> "Pemasangan: ketuk papan sesuai pilihan di bawah."
         Phase.PLAY -> {
             val p = engine.pieceById(engine.activeId)
-            val base = p?.let { "Dipilih: ${it.char.name} · stamina ${it.stamina}" } ?: "Ketuk karakter di papan."
+            val base = p?.let { "Dipilih: ${it.char.name} · stamina ${it.stamina}" } ?: "Ketuk kartu karakter di tangan."
             val hand = engine.decks[engine.turn]?.hand?.size ?: 0
             "$base · Tangan $hand/$HAND_SIZE"
         }
@@ -404,7 +404,7 @@ class GameView(context: Context) : View(context) {
             Phase.PLAY -> {
                 if (engine.owed == null) {
                     if (engine.pending != null) {
-                        list += Btn("Hindar (3)", engine.decks[Side.ATTACKER]?.hand?.any { it is Card.Evade } == true, false) { engine.evade() }
+                        list += Btn("Hindar (3)", engine.evadeCard() != null, false) { engine.evade() }
                         list += Btn("Terima Sentuhan", true, false) { engine.acceptTouch() }
                     } else if (engine.postMove == null) {
                         val hand = engine.decks[engine.turn]?.hand ?: emptyList<Card>()
@@ -497,7 +497,7 @@ class GameView(context: Context) : View(context) {
                 r.offset(-k * 3f, k * 3f)
                 CardArt.drawBack(canvas, r)
             }
-            CardArt.draw(canvas, last, discardRect)
+            CardArt.draw(canvas, context, last, discardRect)
         } else {
             canvas.drawRoundRect(discardRect, 12f, 12f, dashPaint)
         }
@@ -536,11 +536,12 @@ class GameView(context: Context) : View(context) {
 
     private fun usable(c: Card): Boolean = when {
         engine.owed != null -> true
-        engine.pending != null -> c is Card.Evade
-        engine.postMove != null -> c is Card.Star
+        engine.pending != null -> c is Card.Evade && c.owner == engine.pending?.second?.char?.name
+        engine.postMove != null -> c is Card.Star && c.owner == engine.pieceById(engine.postMove)?.char?.name
         c is Card.Star -> false
         c is Card.Evade -> false
-        c is Card.Touch -> engine.turn == Side.GUARD
+        c is Card.Touch -> engine.turn == Side.GUARD && engine.ownerOf(c) != null
+        c is Card.Move -> engine.ownerOf(c) != null
         else -> true
     }
 
@@ -567,7 +568,7 @@ class GameView(context: Context) : View(context) {
             val lift = if (selected) cardH * 0.12f else 0f
             val x = startX + i * spacing
             val rect = RectF(x, baseY - lift, x + cardW, baseY - lift + cardH)
-            CardArt.draw(canvas, c, rect, enabled = usable(c), selected = selected)
+            CardArt.draw(canvas, context, c, rect, enabled = usable(c), selected = selected)
             handHits += rect to c
         }
     }
@@ -577,7 +578,7 @@ class GameView(context: Context) : View(context) {
         if (!dragging) return
         val s = cardW * 1.08f
         val rect = RectF(dragX - s / 2f, dragY - s * CardArt.H / CardArt.W / 2f, dragX + s / 2f, dragY + s * CardArt.H / CardArt.W / 2f)
-        CardArt.draw(canvas, card, rect, enabled = true, selected = true)
+        CardArt.draw(canvas, context, card, rect, enabled = true, selected = true)
     }
 
     // ---- Input ----
