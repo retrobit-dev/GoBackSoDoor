@@ -115,7 +115,7 @@ class GameEngineTest {
     fun starOfAnotherCharacterCannotBeUsed() {
         attacker("A1").stamina = 6
         val star = Card.Star(933, 1, "Sutan")
-        setHand(Side.ATTACKER, Card.Move(934, Dir.VERTICAL, "Slamet"), star)
+        setHand(Side.ATTACKER, Card.Move(934, Dir.VERTICAL, "Slamet"), star, Card.Star(936, 2, "Slamet"))
         e.selectCard(hand(Side.ATTACKER)[0])
         e.onCell(1, 20)
         assertEquals("A1", e.postMove)
@@ -213,7 +213,7 @@ class GameEngineTest {
         assertEquals(HAND_SIZE, hand(Side.ATTACKER).size)
         assertTrue(hand(Side.ATTACKER).containsAll(top))
         // Setelah ambil, pemain tetap bisa bergerak dengan kartu yang tersisa.
-        e.selectCard(hand(Side.ATTACKER).first { it is Card.Move })
+        e.selectCard(hand(Side.ATTACKER).first { it.uid == 981 })   // kartu gerak Slamet yang tersisa
         e.onCell(1, 20)
         assertEquals(Side.GUARD, e.turn)
     }
