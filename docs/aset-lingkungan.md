@@ -1,5 +1,9 @@
 # Aset Lingkungan
 
+Gaya: **pixel art**. Font: Press Start 2P (OFL), di `app/src/main/assets/fonts/press_start.ttf`.
+
+**Status pixel:** karakter sudah dibuat ulang sebagai pixel art. Obstacle, ubin, dekorasi, dan latar papan masih hasil pixelasi dari versi halus. Pembuatan ulang pixel asli tertunda karena batas pembuatan gambar per giliran sudah tercapai.
+
 Daftar aset lingkungan permainan. Sumber mentah (sebelum diproses) disimpan di luar repo.
 
 ## Keputusan desain
@@ -15,8 +19,8 @@ Daftar aset lingkungan permainan. Sumber mentah (sebelum diproses) disimpan di l
 | `drawable/env_hole.png` | Obstacle lubang | Dipasang di papan |
 | `drawable/env_rock.png` | Obstacle batu | Dipasang di papan |
 | `drawable/env_bush.png` | Obstacle semak | Dipasang di papan |
-| `drawable/env_grass_tile.jpg` | Ubin rumput | Belum dipakai |
-| `drawable/env_dirt_tile.jpg` | Ubin tanah | Belum dipakai |
+| `drawable/env_grass_tile.png` | Ubin rumput | Belum dipakai |
+| `drawable/env_dirt_tile.png` | Ubin tanah | Belum dipakai |
 | `drawable/env_tree.png` | Dekorasi pohon | Belum dipakai |
 | `drawable/env_fence.png` | Dekorasi pagar | Belum dipakai |
 | `drawable/env_windmill.png` | Dekorasi kincir angin | Belum dipakai |
