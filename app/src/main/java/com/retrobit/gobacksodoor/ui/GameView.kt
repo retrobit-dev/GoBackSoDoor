@@ -159,6 +159,8 @@ class GameView(context: Context) : View(context) {
         drawHand(canvas)
         drawBottomBar(canvas)
         drawDragged(canvas)
+        // Animasi idle/walk berjalan terus.
+        postInvalidateOnAnimation()
     }
 
     // ---- Banner ----
@@ -365,34 +367,58 @@ class GameView(context: Context) : View(context) {
         }
     }
 
+    /** Posisi terakhir tiap bidak, untuk mendeteksi saat bidak berjalan. */
+    private val lastPos = HashMap<String, Pair<Int, Int>>()
+    private val walkUntil = HashMap<String, Long>()
+
     private fun drawPieces(canvas: Canvas) {
+        val now = android.os.SystemClock.uptimeMillis()
         for (p in engine.attackers + engine.guards) {
             val cx = boardLeft + (p.x + 0.5f) * cell
             val cy = boardTop + (p.y + 0.5f) * cell
             val r = cell * 0.36f
 
-            fill.color = Color.argb(90, 0, 0, 0)
-            canvas.drawCircle(cx + 2f, cy + 3f, r, fill)
+            // Deteksi berjalan: posisi berubah sejak frame sebelumnya.
+            val prev = lastPos[p.id]
+            if (prev != null && (prev.first != p.x || prev.second != p.y)) walkUntil[p.id] = now + 480
+            lastPos[p.id] = p.x to p.y
+            val walking = (walkUntil[p.id] ?: 0L) > now
 
-            fill.color = if (p.side == Side.ATTACKER) Color.rgb(41, 121, 255) else Color.rgb(229, 57, 53)
-            canvas.drawCircle(cx, cy, r, fill)
-            val art = CharacterArt.get(context, p.char.name)
-            if (art != null) {
-                canvas.save()
-                clipPath.reset()
-                clipPath.addCircle(cx, cy, r, Path.Direction.CW)
-                canvas.clipPath(clipPath)
-                canvas.drawBitmap(art, null, RectF(cx - r, cy - r, cx + r, cy + r), bitmapPaint)
-                canvas.restore()
-            } else {
-                fill.color = Color.argb(70, 255, 255, 255)
-                canvas.drawCircle(cx, cy - r * 0.2f, r * 0.55f, fill)
+            // Sprite: milik pemain yang sedang giliran tampak belakang; lawan tampak depan.
+            val own = p.side == engine.turn
+            val sprite = CharacterArt.get(context, p.char.name, back = own)
+            val feetY = cy + cell * 0.46f
+            val spriteH = cell * 1.5f
+            // Bayangan di bawah kaki.
+            fill.color = Color.argb(90, 0, 0, 0)
+            canvas.drawOval(RectF(cx - r * 0.9f, feetY - r * 0.22f, cx + r * 0.9f, feetY + r * 0.22f), fill)
+
+            if (sprite != null) {
+                // Animasi 4 frame: idle (bob pelan) atau walk (langkah dan goyang), dalam piksel sprite.
+                val unit = spriteH / sprite.height
+                val dy: Float
+                val dx: Float
+                if (walking) {
+                    val f = ((now / 120L) % 4).toInt()
+                    dy = (if (f % 2 == 0) 0f else -2f) * unit
+                    dx = (when (f) { 0 -> -1f; 1 -> 0f; 2 -> 1f; else -> 0f }) * unit
+                } else {
+                    val f = ((now / 260L) % 4).toInt()
+                    dy = (if (f % 2 == 0) 0f else -1f) * unit
+                    dx = 0f
+                }
+                val w = sprite.width * unit
+                val h = sprite.height * unit
+                canvas.drawBitmap(sprite, null, RectF(cx - w / 2 + dx, feetY - h + dy, cx + w / 2 + dx, feetY + dy), bitmapPaint)
+            }
+
+            if (sprite == null) {
+                fill.color = if (p.side == Side.ATTACKER) Color.rgb(41, 121, 255) else Color.rgb(229, 57, 53)
+                canvas.drawCircle(cx, cy, r, fill)
             }
 
             borderPaint.strokeWidth = cell * 0.05f
             borderPaint.color = if (p.side == Side.ATTACKER) Color.rgb(160, 205, 255) else Color.rgb(255, 170, 160)
-            canvas.drawCircle(cx, cy, r, borderPaint)
-            borderPaint.color = Color.WHITE
             if (p.locked) {
                 // Bidak terkunci (jatuh ke lubang): diredupkan sampai giliran pemiliknya berikutnya.
                 fill.color = Color.argb(150, 70, 70, 70)

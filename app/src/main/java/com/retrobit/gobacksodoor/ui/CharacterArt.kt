@@ -11,8 +11,9 @@ import android.graphics.BitmapFactory
 object CharacterArt {
     private val cache = HashMap<String, Bitmap?>()
 
-    fun get(context: Context, name: String): Bitmap? {
-        val key = name.lowercase()
+    /** Sprite depan (default) atau belakang (back = true). Null jika tidak ada. */
+    fun get(context: Context, name: String, back: Boolean = false): Bitmap? {
+        val key = name.lowercase() + if (back) "_back" else ""
         return cache.getOrPut(key) {
             val id = context.resources.getIdentifier("char_$key", "drawable", context.packageName)
             if (id == 0) null else BitmapFactory.decodeResource(context.resources, id)
