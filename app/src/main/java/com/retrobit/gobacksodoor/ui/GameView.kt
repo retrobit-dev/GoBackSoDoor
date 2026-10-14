@@ -279,9 +279,15 @@ class GameView(context: Context) : View(context) {
         Zone.FIELD -> Color.rgb(232, 210, 165)
     }
 
+    /** Saat giliran penjaga, papan dibalik: garis start berada di atas. */
+    private fun flipped(): Boolean = engine.phase == Phase.PLAY && engine.turn == Side.GUARD
+
+    /** Baris layar untuk baris logika y. */
+    private fun dispY(y: Int): Int = if (flipped()) ROWS - 1 - y else y
+
     private fun cellRect(x: Int, y: Int) = RectF(
-        boardLeft + x * cell, boardTop + y * cell,
-        boardLeft + (x + 1) * cell, boardTop + (y + 1) * cell,
+        boardLeft + x * cell, boardTop + dispY(y) * cell,
+        boardLeft + (x + 1) * cell, boardTop + (dispY(y) + 1) * cell,
     )
 
     /** Latar papan (gambar referensi). Null jika aset tidak ada: pakai warna zona. */
@@ -325,7 +331,7 @@ class GameView(context: Context) : View(context) {
         if (engine.phase == Phase.PLAY) {
             for ((c, res) in engine.moveTargets()) {
                 val cx = boardLeft + (c.x + 0.5f) * cell
-                val cy = boardTop + (c.y + 0.5f) * cell
+                val cy = boardTop + (dispY(c.y) + 0.5f) * cell
                 fill.color = Color.rgb(255, 235, 59)
                 canvas.drawCircle(cx, cy, cell * 0.22f, fill)
                 text.color = Color.BLACK
@@ -340,7 +346,7 @@ class GameView(context: Context) : View(context) {
     private fun drawObstacles(canvas: Canvas) {
         for (o in engine.obstacles) {
             val cx = boardLeft + (o.x + 0.5f) * cell
-            val cy = boardTop + (o.y + 0.5f) * cell
+            val cy = boardTop + (dispY(o.y) + 0.5f) * cell
             val r = cell * 0.4f
             when (o.kind) {
                 ObstacleKind.HOLE -> {
@@ -375,7 +381,7 @@ class GameView(context: Context) : View(context) {
         val now = android.os.SystemClock.uptimeMillis()
         for (p in engine.attackers + engine.guards) {
             val cx = boardLeft + (p.x + 0.5f) * cell
-            val cy = boardTop + (p.y + 0.5f) * cell
+            val cy = boardTop + (dispY(p.y) + 0.5f) * cell
             val r = cell * 0.36f
 
             // Deteksi berjalan: posisi berubah sejak frame sebelumnya.
@@ -453,7 +459,7 @@ class GameView(context: Context) : View(context) {
                 val ax = if (p.facing == Facing.LEFT) cx - r - cell * 0.22f else cx + r + cell * 0.22f
                 drawCentered(canvas, arrow, ax, cy, text)
             } else if (p.guardType == GuardType.H) {
-                val arrow = if (p.facing == Facing.UP) "▲" else "▼"
+                val arrow = if ((p.facing == Facing.UP) != flipped()) "▲" else "▼"
                 drawCentered(canvas, arrow, cx + r + cell * 0.22f, cy, text)
             }
         }
@@ -717,7 +723,8 @@ class GameView(context: Context) : View(context) {
         val boardBottom = boardTop + cell * ROWS
         if (x >= boardLeft && x < boardRight && y >= boardTop && y < boardBottom) {
             val cx = ((x - boardLeft) / cell).toInt().coerceIn(0, COLS - 1)
-            val cy = ((y - boardTop) / cell).toInt().coerceIn(0, ROWS - 1)
+            val row = ((y - boardTop) / cell).toInt().coerceIn(0, ROWS - 1)
+            val cy = if (flipped()) ROWS - 1 - row else row
             engine.onCell(cx, cy)
         } else if (endRect.contains(x, y) && endEnabled) {
             if (engine.postMove != null) engine.endPostMove() else engine.skipTurn()
