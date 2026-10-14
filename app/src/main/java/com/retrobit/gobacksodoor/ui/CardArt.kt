@@ -14,44 +14,55 @@ import com.retrobit.gobacksodoor.game.dirName
 import kotlin.math.min
 
 /**
- * Kartu bergaya pixel art: bingkai tegas tanpa sudut membulat, judul di kiri atas,
- * gambar karakter pixel, pita nama, dan baris nilai berbentuk kotak.
+ * Kartu bergaya Clash Royale (pixel font): bingkai emas tebal dengan sudut membulat,
+ * lencana biaya ungu di kiri atas, judul kategori, jendela gambar biru langit,
+ * pita nama emas, baris nilai, dan area efek krem.
  * Semua ukuran dalam satuan 200x290 lalu diskalakan ke ukuran layar.
  */
 object CardArt {
     const val W = 200f
     const val H = 290f
 
-    private val CREAM = 0xFFFBE9D2.toInt()
-    private val BANNER = 0xFFF5A03A.toInt()
-    private val INK = 0xFF3B1E08.toInt()
-    private val PILL = 0xFFBDEFF7.toInt()
-    private val PILL_EDGE = 0xFF2B8C9E.toInt()
+    private val NAVY = 0xFF14215A.toInt()
+    private val GOLD = 0xFFFFC83D.toInt()
+    private val BODY = 0xFFE9F4FF.toInt()
+    private val SKY = 0xFF7CCBFF.toInt()
+    private val GRASS = 0xFF62C15A.toInt()
+    private val CREAM = 0xFFFFF8E7.toInt()
+    private val ELIXIR = 0xFF9B3FD8.toInt()
+    private val PILL = 0xFFFFFFFF.toInt()
 
     private var face: Typeface = Typeface.MONOSPACE
 
-    private class Look(val frame: Int, val title: String, val name: String, val rows: List<Pair<String, String>>, val effect: String)
+    private class Look(val frame: Int, val title: String, val name: String, val cost: String, val rows: List<Pair<String, String>>, val effect: String)
 
     fun draw(canvas: Canvas, context: Context, card: Card, rect: RectF, enabled: Boolean = true, selected: Boolean = false) {
         face = PixelFont.get(context)
         val lk = look(card)
         val n = begin(canvas, rect)
 
-        // Bingkai luar: dua lapis, gelap di luar dan cokelat di dalam.
-        canvas.drawRect(RectF(0f, 0f, W, H), fill(INK))
-        canvas.drawRect(RectF(4f, 4f, W - 4f, H - 4f), fill(lk.frame))
-        canvas.drawRect(RectF(10f, 10f, W - 10f, H - 10f), fill(CREAM))
+        // Bingkai: navy di luar, emas tebal, lalu badan kartu biru muda.
+        canvas.drawRoundRect(RectF(0f, 0f, W, H), 22f, 22f, fill(NAVY))
+        canvas.drawRoundRect(RectF(3f, 3f, W - 3f, H - 3f), 20f, 20f, fill(GOLD))
+        canvas.drawRoundRect(RectF(9f, 9f, W - 9f, H - 9f), 16f, 16f, fill(lk.frame))
+        canvas.drawRoundRect(RectF(12f, 12f, W - 12f, H - 12f), 13f, 13f, fill(BODY))
 
-        // Judul kategori (kotak di kiri atas).
-        canvas.drawRect(RectF(16f, 16f, 126f, 40f), fill(BANNER))
-        canvas.drawRect(RectF(16f, 16f, 126f, 40f), stroke(INK, 3f))
-        canvas.drawText(lk.title, 71f, 33f, text(INK, fit(lk.title, 98f, 12f)))
+        // Lencana biaya (kiri atas) dan judul kategori (pita).
+        canvas.drawCircle(30f, 32f, 17f, fill(NAVY))
+        canvas.drawCircle(30f, 32f, 14f, fill(ELIXIR))
+        canvas.drawText(lk.cost, 30f, 37f, text(0xFFFFFFFF.toInt(), fit(lk.cost, 22f, 12f)))
+        val title = RectF(52f, 20f, 186f, 44f)
+        canvas.drawRoundRect(title, 8f, 8f, fill(lk.frame))
+        canvas.drawRoundRect(title, 8f, 8f, stroke(NAVY, 3f))
+        canvas.drawText(lk.title, title.centerX(), 36f, text(0xFFFFFFFF.toInt(), fit(lk.title, 118f, 11f)))
 
-        // Jendela gambar.
-        val art = RectF(16f, 46f, 184f, 174f)
+        // Jendela gambar: langit biru dengan rumput di bawah; karakter di tengah.
+        val art = RectF(18f, 52f, 182f, 172f)
+        val artPath = Path().apply { addRoundRect(art, 10f, 10f, Path.Direction.CW) }
         canvas.save()
-        canvas.clipRect(art)
-        canvas.drawRect(art, fill(0xFFFFF4E4.toInt()))
+        canvas.clipPath(artPath)
+        canvas.drawRect(art, fill(SKY))
+        canvas.drawRect(RectF(art.left, art.centerY(), art.right, art.bottom), fill(GRASS))
         val owner = card.owner
         val bmp = if (owner != null) CharacterArt.get(context, owner) else null
         if (bmp != null) {
@@ -62,68 +73,72 @@ object CardArt {
             val src = android.graphics.Rect(0, top.toInt(), bmp.width, (top + sh).toInt().coerceAtMost(bmp.height))
             canvas.drawBitmap(bmp, src, art, pixelPaint())
         } else {
-            canvas.drawText(lk.name.substringAfter(' ', lk.name), 100f, 150f, text(INK, 40f))
+            canvas.drawText(lk.name.substringAfter(' ', lk.name), 100f, 120f, text(NAVY, 40f))
         }
         canvas.restore()
-        canvas.drawRect(art, stroke(INK, 3f))
+        canvas.drawRoundRect(art, 10f, 10f, stroke(NAVY, 3f))
 
-        // Pita nama.
-        val banner = RectF(20f, 158f, 180f, 184f)
-        canvas.drawRect(banner, fill(BANNER))
-        canvas.drawRect(banner, stroke(INK, 3f))
-        canvas.drawText(lk.name, 100f, 176f, text(INK, fit(lk.name, 146f, 10f)))
+        // Pita nama emas.
+        val banner = RectF(14f, 170f, 186f, 194f)
+        canvas.drawRoundRect(banner, 8f, 8f, fill(GOLD))
+        canvas.drawRoundRect(banner, 8f, 8f, stroke(NAVY, 3f))
+        canvas.drawRoundRect(RectF(banner.left + 3f, banner.top + 2f, banner.right - 3f, banner.centerY()), 4f, 4f, fill(0x55FFFFFF))
+        canvas.drawText(lk.name, 100f, 186f, text(NAVY, fit(lk.name, 150f, 11f)))
 
-        // Baris nilai: penanda kotak di kiri, label, dan pil nilai di kanan.
-        var y = 192f
+        // Baris nilai: ikon kotak emas, label, dan pil putih di kanan.
+        var y = 200f
         for ((label, value) in lk.rows) {
-            canvas.drawRect(RectF(22f, y + 4f, 32f, y + 14f), fill(BANNER))
-            canvas.drawRect(RectF(22f, y + 4f, 32f, y + 14f), stroke(INK, 2f))
-            canvas.drawText(label, 38f, y + 13f, text(INK, 7f, Paint.Align.LEFT))
+            canvas.drawRoundRect(RectF(20f, y + 3f, 32f, y + 15f), 4f, 4f, fill(GOLD))
+            canvas.drawRoundRect(RectF(20f, y + 3f, 32f, y + 15f), 4f, 4f, stroke(NAVY, 2f))
+            canvas.drawText(label, 38f, y + 13f, text(NAVY, 7f, Paint.Align.LEFT))
             // Font pixel: lebar tiap huruf kira-kira sama dengan ukuran teksnya.
             val pillW = (value.length * 7f + 14f).coerceIn(44f, 112f)
-            val pill = RectF(184f - pillW, y + 2f, 184f, y + 19f)
-            canvas.drawRect(pill, fill(PILL))
-            canvas.drawRect(pill, stroke(PILL_EDGE, 2f))
+            val pill = RectF(182f - pillW, y + 1f, 182f, y + 17f)
+            canvas.drawRoundRect(pill, 8f, 8f, fill(PILL))
+            canvas.drawRoundRect(pill, 8f, 8f, stroke(NAVY, 2f))
             val vs = fit(value, pillW - 10f, 7f)
-            canvas.drawText(value, pill.centerX(), y + 13f, text(INK, vs))
-            y += 22f
+            canvas.drawText(value, pill.centerX(), y + 12f, text(NAVY, vs))
+            y += 20f
         }
 
-        // Efek karakter (atau keterangan kartu netral), dibungkus manual per baris.
-        canvas.drawText("EFEK", 22f, y + 8f, text(INK, 7f, Paint.Align.LEFT))
-        val lines = wrap(lk.effect, 22)
-        var ly = y + 18f
-        for (line in lines) {
-            canvas.drawText(line, 22f, ly, text(INK, 6f, Paint.Align.LEFT))
+        // Efek karakter (atau keterangan kartu netral) dalam kotak krem.
+        val box = RectF(14f, 244f, 186f, 280f)
+        canvas.drawRoundRect(box, 8f, 8f, fill(CREAM))
+        canvas.drawRoundRect(box, 8f, 8f, stroke(NAVY, 2f))
+        var ly = 254f
+        for (line in wrap(lk.effect, 24)) {
+            canvas.drawText(line, 21f, ly, text(NAVY, 6f, Paint.Align.LEFT))
             ly += 9f
         }
 
-        if (!enabled) canvas.drawRect(RectF(0f, 0f, W, H), fill(Color.argb(150, 0, 0, 0)))
-        if (selected) canvas.drawRect(RectF(2f, 2f, W - 2f, H - 2f), stroke(Color.rgb(255, 235, 59), 5f))
+        if (!enabled) canvas.drawRoundRect(RectF(0f, 0f, W, H), 22f, 22f, fill(Color.argb(150, 0, 0, 0)))
+        if (selected) canvas.drawRoundRect(RectF(2f, 2f, W - 2f, H - 2f), 22f, 22f, stroke(Color.rgb(255, 235, 59), 5f))
         canvas.restoreToCount(n)
     }
 
-    /** Punggung kartu (dek): tanpa label, hanya pola piksel. */
+    /** Punggung kartu (dek): biru dengan pola emas, tanpa label. */
     fun drawBack(canvas: Canvas, rect: RectF) {
         val n = begin(canvas, rect)
-        canvas.drawRect(RectF(0f, 0f, W, H), fill(Color.rgb(24, 34, 78)))
+        canvas.drawRoundRect(RectF(0f, 0f, W, H), 22f, 22f, fill(NAVY))
+        canvas.drawRoundRect(RectF(4f, 4f, W - 4f, H - 4f), 19f, 19f, fill(GOLD))
+        canvas.drawRoundRect(RectF(12f, 12f, W - 12f, H - 12f), 14f, 14f, fill(0xFF2C6FD6.toInt()))
         val step = 16f
         var yy = 0f
         var row = 0
         while (yy < H) {
             var xx = if (row % 2 == 0) 0f else step / 2f
             while (xx < W) {
-                canvas.drawRect(RectF(xx + 3f, yy + 3f, xx + step - 3f, yy + step - 3f), fill(Color.argb(70, 255, 215, 0)))
+                canvas.drawRect(RectF(xx + 3f, yy + 3f, xx + step - 3f, yy + step - 3f), fill(Color.argb(60, 255, 255, 255)))
                 xx += step
             }
             yy += step
             row++
         }
-        canvas.drawRect(RectF(7f, 7f, W - 7f, H - 7f), stroke(Color.rgb(255, 215, 0), 5f))
         val diamond = Path().apply {
             moveTo(100f, 110f); lineTo(140f, 150f); lineTo(100f, 190f); lineTo(60f, 150f); close()
         }
-        canvas.drawPath(diamond, fill(Color.rgb(255, 193, 7)))
+        canvas.drawPath(diamond, fill(GOLD))
+        canvas.drawPath(diamond, stroke(NAVY, 3f))
         canvas.restoreToCount(n)
     }
 
@@ -133,29 +148,29 @@ object CardArt {
             is Card.Move -> {
                 val c = roster.first { it.name == card.owner }
                 Look(
-                    frame = Color.rgb(200, 100, 42), title = "GERAK", name = c.name.uppercase(),
+                    frame = Color.rgb(230, 120, 40), title = "GERAK", name = c.name.uppercase(), cost = "1",
                     rows = listOf("GERAKAN" to dirName(card.dir), "LANGKAH" to "1-${c.stamina} KOTAK"),
                     effect = c.effect,
                 )
             }
             is Card.Touch -> {
                 val c = roster.first { it.name == card.owner }
-                Look(Color.rgb(179, 38, 30), "SENTUH", c.name.uppercase(), listOf("GERAKAN" to "Sentuh", "BIAYA" to "3 STAMINA"), c.effect)
+                Look(Color.rgb(220, 50, 47), "SENTUH", c.name.uppercase(), "3", listOf("GERAKAN" to "Sentuh", "BIAYA" to "3 STAMINA"), c.effect)
             }
             is Card.Evade -> {
                 val c = roster.first { it.name == card.owner }
-                Look(Color.rgb(30, 111, 184), "HINDAR", c.name.uppercase(), listOf("GERAKAN" to "Hindar", "BIAYA" to "3 STAMINA"), c.effect)
+                Look(Color.rgb(30, 130, 230), "HINDAR", c.name.uppercase(), "3", listOf("GERAKAN" to "Hindar", "BIAYA" to "3 STAMINA"), c.effect)
             }
             is Card.Star -> {
                 val c = roster.first { it.name == card.owner }
-                Look(Color.rgb(184, 134, 11), "BINTANG", c.name.uppercase(), listOf("GERAKAN" to "Bintang", "BIAYA" to "5 STAMINA"), c.effect)
+                Look(Color.rgb(255, 170, 0), "BINTANG", c.name.uppercase(), "5", listOf("GERAKAN" to "Bintang", "BIAYA" to "5 STAMINA"), c.effect)
             }
             is Card.Stamina -> Look(
-                Color.rgb(46, 125, 50), "STAMINA", "STAMINA ${if (card.value > 0) "+" else "-"}${kotlin.math.abs(card.value)}", emptyList(),
+                Color.rgb(60, 170, 70), "STAMINA", "STAMINA ${if (card.value > 0) "+" else "-"}${kotlin.math.abs(card.value)}", "0", emptyList(),
                 "Ketuk karakter tujuan: sekutu +${card.value}, lawan -${card.value} stamina.",
             )
             is Card.Draw -> Look(
-                Color.rgb(106, 63, 160), "AMBIL", "AMBIL +${card.value}", emptyList(),
+                Color.rgb(150, 80, 220), "AMBIL", "AMBIL +${card.value}", "0", emptyList(),
                 "Ambil ${card.value} kartu teratas dari dek. Tidak mengakhiri giliran.",
             )
         }
@@ -208,7 +223,7 @@ object CardArt {
         }
 
     private fun fit(s: String, maxW: Float, size: Float): Float {
-        val w = text(INK, size, Paint.Align.LEFT).measureText(s)
+        val w = text(NAVY, size, Paint.Align.LEFT).measureText(s)
         return if (w > maxW && w > 0f) size * maxW / w else size
     }
 }
