@@ -119,7 +119,7 @@ class GameView(context: Context) : View(context) {
     private val msgPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(225, 225, 235) }
 
     init {
-        setBackgroundColor(Color.rgb(28, 64, 140))
+        setBackgroundColor(Color.rgb(104, 180, 74))
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -276,7 +276,7 @@ class GameView(context: Context) : View(context) {
         Zone.BELOW -> Color.rgb(236, 206, 140)
         Zone.END -> Color.rgb(255, 213, 79)
         Zone.LANE -> Color.rgb(246, 226, 178)
-        Zone.FIELD -> Color.rgb(140, 206, 96)
+        Zone.FIELD -> Color.rgb(246, 200, 164)
     }
 
     /** Saat giliran penjaga, papan dibalik: garis start berada di atas. */
@@ -303,7 +303,13 @@ class GameView(context: Context) : View(context) {
             // Zona start, garis batas, finish, dan baris coklat tetap terlihat di atas latar.
             for (x in 0 until COLS) for (y in 0 until ROWS) {
                 val z = zoneOf(x, y)
-                if (z == Zone.WALL || z == Zone.FIELD) continue
+                if (z == Zone.FIELD) {
+                    // Arena berpetak krem-oranye, seperti arena Clash Royale.
+                    fill.color = if ((x + y) % 2 == 0) Color.rgb(248, 204, 170) else Color.rgb(238, 186, 148)
+                    canvas.drawRect(cellRect(x, y), fill)
+                    continue
+                }
+                if (z == Zone.WALL) continue
                 fill.color = (zoneColor(z) and 0x00FFFFFF) or (120 shl 24)
                 canvas.drawRect(cellRect(x, y), fill)
             }
@@ -545,7 +551,7 @@ class GameView(context: Context) : View(context) {
             fill.color = when {
                 !b.enabled -> Color.rgb(45, 45, 55)
                 b.active -> Color.rgb(255, 193, 7)
-                else -> Color.rgb(44, 111, 214)
+                else -> Color.argb(220, 30, 38, 64)
             }
             canvas.drawRoundRect(b.rect, 22f, 22f, fill)
             canvas.drawRoundRect(b.rect, 22f, 22f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.rgb(20, 33, 90); strokeWidth = 5f })

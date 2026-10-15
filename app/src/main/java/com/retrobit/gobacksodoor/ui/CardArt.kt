@@ -29,7 +29,7 @@ object CardArt {
     private val SKY = 0xFF7CCBFF.toInt()
     private val GRASS = 0xFF62C15A.toInt()
     private val CREAM = 0xFFFFF8E7.toInt()
-    private val ELIXIR = 0xFF9B3FD8.toInt()
+    private val ELIXIR = 0xFFE8409E.toInt()
     private val PILL = 0xFFFFFFFF.toInt()
 
     private var face: Typeface = Typeface.MONOSPACE
