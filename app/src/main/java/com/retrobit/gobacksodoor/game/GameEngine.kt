@@ -92,6 +92,9 @@ sealed class Card {
 }
 
 /** Pemain di papan: penyerang atau penjaga, lengkap dengan karakter dan stamina. */
+/** Event visual untuk tampilan: jenis ("touch", "hit", "hole", "bush"), sel, dan waktu (ms). */
+data class Fx(val kind: String, val x: Int, val y: Int, val at: Long)
+
 class Piece(
     val id: String,
     val side: Side,
@@ -176,6 +179,13 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     var owed: Owed? = null
         private set
     var message: String = ""
+    /** Event efek terbaru untuk tampilan. Tidak dipakai oleh aturan permainan. */
+    val effects = mutableListOf<Fx>()
+
+    private fun fx(kind: String, x: Int, y: Int) {
+        effects.add(Fx(kind, x, y, System.currentTimeMillis()))
+        if (effects.size > 12) effects.removeAt(0)
+    }
         private set
 
     val attackers: MutableList<Piece> = mutableListOf()
@@ -292,6 +302,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     // ---- Alur permainan ----
 
     fun newGame() {
+        effects.clear()
         round = 1
         attTeam = Team.A
         scores[Team.A] = 0
@@ -501,10 +512,12 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
         val pen = path.count { obstacleAt(it % COLS, it / COLS)?.kind == ObstacleKind.BUSH }
         var text = ""
         if (pen > 0) {
+            fx("bush", end.x, end.y)
             p.stamina = (p.stamina - pen).coerceAtLeast(0)
             text += " Semak: −$pen stamina."
         }
         if (obstacleAt(end.x, end.y)?.kind == ObstacleKind.HOLE) {
+            fx("hole", end.x, end.y)
             p.lockPending = true
             text += " ${p.char.name} jatuh ke lubang, terkunci sampai giliran berikutnya."
         }
@@ -642,6 +655,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     }
 
     private fun declareTouch(g: Piece, a: Piece, card: Card.Touch) {
+        fx("touch", a.x, a.y)
         g.stamina -= TOUCH_COST
         consume(Side.GUARD, card)
         val hasEvade = decks[Side.ATTACKER]?.hand?.any { it is Card.Evade && it.owner == a.char.name } ?: false
@@ -667,6 +681,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
 
     fun acceptTouch() {
         val (g, a) = pending ?: return
+        fx("hit", a.x, a.y)
         roundOver("Penjaga ${g.char.name} menyentuh ${a.char.name}. Babak selesai.")
     }
 

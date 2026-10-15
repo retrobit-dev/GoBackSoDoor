@@ -162,6 +162,7 @@ class GameView(context: Context) : View(context) {
         drawBoard(canvas)
         drawObstacles(canvas)
         drawPieces(canvas)
+        drawEffects(canvas)
         drawActionArea(canvas)
         drawTray(canvas)
         drawPiles(canvas)
@@ -361,6 +362,29 @@ class GameView(context: Context) : View(context) {
     }
 
     /** Rintangan: lubang (gelap), batu (abu-abu), semak (hijau). */
+    /** Efek dari mesin: cincin yang membesar dan memudar di sel terkait. */
+    private fun drawEffects(canvas: Canvas) {
+        val now = System.currentTimeMillis()
+        val life = 700f
+        for (e in engine.effects) {
+            val t = ((now - e.at) / life).coerceIn(0f, 1f)
+            if (t >= 1f) continue
+            val cx = boardLeft + (e.x + 0.5f) * cell
+            val cy = boardTop + (dispY(e.y) + 0.5f) * cell
+            val color = when (e.kind) {
+                "touch" -> Color.rgb(255, 200, 61)
+                "hit" -> Color.rgb(229, 57, 53)
+                "hole" -> Color.rgb(60, 40, 20)
+                "bush" -> Color.rgb(98, 193, 90)
+                else -> Color.WHITE
+            }
+            rimPaint.style = Paint.Style.STROKE
+            rimPaint.strokeWidth = 6f * (1f - t) + 1f
+            rimPaint.color = Color.argb(((1f - t) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
+            canvas.drawCircle(cx, cy, cell * (0.3f + 0.7f * t), rimPaint)
+        }
+    }
+
     private fun drawObstacles(canvas: Canvas) {
         for (o in engine.obstacles) {
             val cx = boardLeft + (o.x + 0.5f) * cell
