@@ -360,6 +360,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     }
 
     private fun gameWon() {
+        fx("win", CENTER_X, ROWS / 2)
         phase = Phase.WON
         winner = attTeam
         activeId = null
@@ -370,6 +371,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     }
 
     private fun roundOver(text: String) {
+        fx("round", CENTER_X, ROWS / 2)
         phase = Phase.OVER
         pending = null
         postMove = null
@@ -619,6 +621,7 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
         if (res.scored) {
             attackers.remove(act)
             scores[attTeam] = (scores[attTeam] ?: 0) + 1
+            fx("score", act.x, act.y)
             if ((scores[attTeam] ?: 0) >= WIN_SCORE) { gameWon(); return }
             if (attackers.isEmpty()) { roundOver("Semua penyerang sudah mencapai finish. Babak selesai."); return }
             endTurn("${act.char.name} mencapai finish: +1 poin untuk Tim ${attTeam.name}.")

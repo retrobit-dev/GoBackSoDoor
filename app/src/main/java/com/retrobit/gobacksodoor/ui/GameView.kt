@@ -365,8 +365,10 @@ class GameView(context: Context) : View(context) {
     /** Efek dari mesin: cincin yang membesar dan memudar di sel terkait. */
     private fun drawEffects(canvas: Canvas) {
         val now = System.currentTimeMillis()
-        val life = 700f
         for (e in engine.effects) {
+            // Efek skor, babak, dan kemenangan lebih panjang dan lebih besar.
+            val big = e.kind == "round" || e.kind == "win" || e.kind == "score"
+            val life = if (big) 1100f else 700f
             val t = ((now - e.at) / life).coerceIn(0f, 1f)
             if (t >= 1f) continue
             val cx = boardLeft + (e.x + 0.5f) * cell
@@ -376,12 +378,16 @@ class GameView(context: Context) : View(context) {
                 "hit" -> Color.rgb(229, 57, 53)
                 "hole" -> Color.rgb(60, 40, 20)
                 "bush" -> Color.rgb(98, 193, 90)
+                "score" -> Color.rgb(255, 213, 79)
+                "round" -> Color.rgb(255, 255, 255)
+                "win" -> Color.rgb(255, 200, 61)
                 else -> Color.WHITE
             }
             rimPaint.style = Paint.Style.STROKE
             rimPaint.strokeWidth = 6f * (1f - t) + 1f
             rimPaint.color = Color.argb(((1f - t) * 255).toInt(), Color.red(color), Color.green(color), Color.blue(color))
-            canvas.drawCircle(cx, cy, cell * (0.3f + 0.7f * t), rimPaint)
+            val radius = if (big) cell * (0.5f + 2.2f * t) else cell * (0.3f + 0.7f * t)
+            canvas.drawCircle(cx, cy, radius, rimPaint)
         }
     }
 
