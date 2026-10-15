@@ -33,6 +33,7 @@ import com.retrobit.gobacksodoor.game.Zone
 import com.retrobit.gobacksodoor.game.zoneOf
 import kotlin.math.abs
 import kotlin.math.min
+import kotlin.math.sin
 
 /** Tombol aksi (ambil, hindar, terima, pasang, dan lain-lain). */
 private class Btn(
@@ -330,7 +331,8 @@ class GameView(context: Context) : View(context) {
         rimPaint.color = Color.rgb(255, 200, 61)
         canvas.drawRect(RectF(boardLeft, boardTop, boardLeft + cell * COLS, boardTop + cell * ROWS), rimPaint)
         if (engine.phase == Phase.PLAY && engine.turn == Side.GUARD) {
-            fill.color = Color.argb(120, 229, 57, 53)
+            val pulse = 0.5 + 0.5 * sin(System.currentTimeMillis() / 220.0)
+            fill.color = Color.argb((90 + 90 * pulse).toInt(), 229, 57, 53)
             for (g in engine.guards) for (c in engine.threatCells(g)) {
                 canvas.drawRect(cellRect(c.x, c.y), fill)
             }
@@ -590,6 +592,12 @@ class GameView(context: Context) : View(context) {
             val r = RectF(x0, elixirRect.top, x0 + segW, elixirRect.bottom)
             val body = if (i < hand) Color.rgb(232, 64, 158) else Color.rgb(60, 70, 110)
             bubble(canvas, r, 8f, body, Color.rgb(20, 33, 90), depth = 3f)
+            if (i < hand) {
+                val glow = 0.5 + 0.5 * sin(System.currentTimeMillis() / 260.0 + i)
+                rimPaint.strokeWidth = 3f
+                rimPaint.color = Color.argb((120 + 120 * glow).toInt(), 255, 240, 160)
+                canvas.drawRoundRect(RectF(r).apply { inset(2f, 2f) }, 8f, 8f, rimPaint)
+            }
         }
     }
 
