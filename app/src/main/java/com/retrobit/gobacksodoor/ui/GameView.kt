@@ -174,16 +174,24 @@ class GameView(context: Context) : View(context) {
     private fun drawBottomBar(canvas: Canvas) {
         drawTeamBanner(canvas, Team.A, RectF(margin, bottomTop + margin, width * 0.48f, height - margin))
         endEnabled = engine.phase == Phase.PLAY && engine.owed == null && engine.pending == null
-        fill.color = if (endEnabled) Color.rgb(67, 160, 71) else Color.rgb(60, 60, 68)
-        canvas.drawRoundRect(endRect, 24f, 24f, fill)
-        borderPaint.strokeWidth = 4f
-        borderPaint.color = if (endEnabled) Color.rgb(165, 214, 167) else Color.rgb(90, 90, 100)
-        canvas.drawRoundRect(endRect, 24f, 24f, borderPaint)
-        borderPaint.color = Color.WHITE
+        bubble(canvas, endRect, 24f, if (endEnabled) Color.rgb(67, 200, 90) else Color.rgb(90, 96, 120), Color.rgb(255, 200, 61))
         text.color = if (endEnabled) Color.WHITE else Color.GRAY
         text.textSize = fitSize("Akhiri Giliran", endRect.width() - 16f, endRect.height() * 0.36f, text)
         drawCentered(canvas, "Akhiri Giliran", endRect.centerX(), endRect.centerY(), text)
         text.color = Color.WHITE
+    }
+
+    private val rimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+
+    /** Bubble ala Clash: isi warna cerah, bayangan tebal di bawah, dan tepi emas. */
+    private fun bubble(canvas: Canvas, r: RectF, radius: Float, body: Int, rim: Int = Color.rgb(255, 200, 61), depth: Float = 7f) {
+        fill.color = Color.rgb(20, 33, 90)
+        canvas.drawRoundRect(RectF(r.left, r.top + depth, r.right, r.bottom + depth), radius, radius, fill)
+        fill.color = body
+        canvas.drawRoundRect(r, radius, radius, fill)
+        rimPaint.strokeWidth = 4f
+        rimPaint.color = rim
+        canvas.drawRoundRect(r, radius, radius, rimPaint)
     }
 
     /** Banner tim: avatar, nama, peran, dan mahkota (poin). */
@@ -191,17 +199,13 @@ class GameView(context: Context) : View(context) {
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
     private fun drawTeamBanner(canvas: Canvas, team: Team, r: RectF) {
-        fill.color = Color.argb(160, 8, 12, 24)
-        canvas.drawRoundRect(r, 18f, 18f, fill)
-        borderPaint.strokeWidth = 2f
-        borderPaint.color = Color.argb(140, 255, 255, 255)
-        canvas.drawRoundRect(r, 18f, 18f, borderPaint)
-        borderPaint.color = Color.WHITE
+        bubble(canvas, r, 22f, Color.rgb(30, 58, 120))
 
         val avR = r.height() * 0.38f
         val avX = r.left + r.height() * 0.1f + avR
         val avY = r.centerY()
         fill.color = if (team == Team.A) Color.rgb(33, 150, 243) else Color.rgb(229, 57, 53)
+        canvas.drawCircle(avX, avY, avR + 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 200, 61) })
         canvas.drawCircle(avX, avY, avR, fill)
         val avatar = CharacterArt.get(context, if (team == Team.A) "ekot" else "togar")
         if (avatar != null) {
@@ -234,14 +238,9 @@ class GameView(context: Context) : View(context) {
     }
 
     private fun drawRoundBadge(canvas: Canvas, r: RectF) {
-        fill.color = Color.argb(200, 20, 28, 50)
-        canvas.drawRoundRect(r, 18f, 18f, fill)
-        borderPaint.strokeWidth = 3f
-        borderPaint.color = Color.rgb(255, 193, 7)
-        canvas.drawRoundRect(r, 18f, 18f, borderPaint)
-        borderPaint.color = Color.WHITE
+        bubble(canvas, r, 22f, Color.rgb(255, 200, 61), Color.rgb(20, 33, 90))
 
-        text.color = Color.rgb(255, 213, 79)
+        text.color = Color.rgb(20, 33, 90)
         text.textSize = fitSize("BABAK ${engine.round}/$TOTAL_ROUNDS", r.width() - 16f, r.height() * 0.3f, text)
         drawCentered(canvas, "BABAK ${engine.round}/$TOTAL_ROUNDS", r.centerX(), r.top + r.height() * 0.36f, text)
 
@@ -252,7 +251,7 @@ class GameView(context: Context) : View(context) {
             Phase.WON -> "Tim ${engine.winner?.name ?: "-"} menang"
             Phase.ENDED -> "Permainan selesai"
         }
-        text.color = Color.WHITE
+        text.color = Color.rgb(20, 33, 90)
         text.textSize = fitSize(sub, r.width() - 16f, r.height() * 0.2f, text)
         drawCentered(canvas, sub, r.centerX(), r.top + r.height() * 0.78f, text)
     }
@@ -319,6 +318,9 @@ class GameView(context: Context) : View(context) {
                 canvas.drawRect(cellRect(x, y), fill)
             }
         }
+        rimPaint.strokeWidth = 8f
+        rimPaint.color = Color.rgb(255, 200, 61)
+        canvas.drawRect(RectF(boardLeft, boardTop, boardLeft + cell * COLS, boardTop + cell * ROWS), rimPaint)
         if (engine.phase == Phase.PLAY && engine.turn == Side.GUARD) {
             fill.color = Color.argb(120, 229, 57, 53)
             for (g in engine.guards) for (c in engine.threatCells(g)) {
@@ -553,8 +555,7 @@ class GameView(context: Context) : View(context) {
                 b.active -> Color.rgb(255, 193, 7)
                 else -> Color.argb(220, 30, 38, 64)
             }
-            canvas.drawRoundRect(b.rect, 22f, 22f, fill)
-            canvas.drawRoundRect(b.rect, 22f, 22f, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.rgb(20, 33, 90); strokeWidth = 5f })
+            bubble(canvas, b.rect, 22f, fill.color)
             text.color = when {
                 b.active -> Color.BLACK
                 b.enabled -> Color.WHITE
