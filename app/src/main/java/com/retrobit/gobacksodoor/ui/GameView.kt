@@ -63,6 +63,8 @@ class GameView(context: Context) : View(context) {
     private var actionTop = 0f
     private var handTop = 0f
     private var handH = 0f
+    private var handCardY = 0f
+    private var elixirRect = RectF()
     private var bottomTop = 0f
     private var cardW = 0f
     private var cardH = 0f
@@ -140,9 +142,14 @@ class GameView(context: Context) : View(context) {
         handTop = h * 0.80f
         bottomTop = h * 0.915f
         handH = bottomTop - handTop
-        cardW = min(w * 0.165f, (handH - margin) * CardArt.W / CardArt.H)
+        // Tray: bar kartu di atas, lalu kartu di bawahnya.
+        elixirRect = RectF(margin, handTop + margin * 0.3f, w - margin, handTop + margin * 0.3f + h * 0.02f)
+        val areaTop = elixirRect.bottom + margin * 0.3f
+        val areaH = bottomTop - areaTop
+        cardW = min(w * 0.165f, (areaH - margin) * CardArt.W / CardArt.H)
         cardH = cardW * CardArt.H / CardArt.W
-        val handY = handTop + (handH - cardH) / 2f
+        val handY = areaTop + (areaH - cardH) / 2f
+        handCardY = handY
         discardRect = RectF(margin, handY, margin + cardW, handY + cardH)
         deckRect = RectF(w - margin - cardW, handY, w - margin, handY + cardH)
         endRect = RectF(w * 0.52f, bottomTop + margin, w - margin, h - margin)
@@ -155,6 +162,7 @@ class GameView(context: Context) : View(context) {
         drawObstacles(canvas)
         drawPieces(canvas)
         drawActionArea(canvas)
+        drawTray(canvas)
         drawPiles(canvas)
         drawHand(canvas)
         drawBottomBar(canvas)
@@ -568,6 +576,23 @@ class GameView(context: Context) : View(context) {
         text.color = Color.WHITE
     }
 
+    /** Tray kartu ala Clash Mini: panel biru dengan tepi emas dan bar segmen di atasnya. */
+    private fun drawTray(canvas: Canvas) {
+        val tray = RectF(margin * 0.5f, handTop, width - margin * 0.5f, bottomTop - margin * 0.2f)
+        bubble(canvas, tray, 26f, Color.rgb(30, 58, 120))
+
+        // Bar segmen: pink terisi sesuai jumlah kartu di tangan (dari batas HAND_SIZE).
+        val hand = engine.decks[engine.turn]?.hand?.size ?: 0
+        val slots = HAND_SIZE
+        val segW = (elixirRect.width() - gap * (slots - 1)) / slots
+        for (i in 0 until slots) {
+            val x0 = elixirRect.left + i * (segW + gap)
+            val r = RectF(x0, elixirRect.top, x0 + segW, elixirRect.bottom)
+            val body = if (i < hand) Color.rgb(232, 64, 158) else Color.rgb(60, 70, 110)
+            bubble(canvas, r, 8f, body, Color.rgb(20, 33, 90), depth = 3f)
+        }
+    }
+
     // ---- Dek & buangan ----
 
     private fun drawPiles(canvas: Canvas) {
@@ -656,7 +681,7 @@ class GameView(context: Context) : View(context) {
         val spacing = if (n == 1) 0f else min(cardW + gap, (regionW - cardW) / (n - 1))
         val total = cardW + spacing * (n - 1)
         val startX = regionL + (regionW - total) / 2f
-        val baseY = handTop + (handH - cardH) / 2f
+        val baseY = handCardY
 
         // Kartu terpilih digambar terakhir agar berada di atas.
         val order = hand.withIndex().sortedBy { if (engine.activeCard == it.value) 1 else 0 }
