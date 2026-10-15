@@ -31,3 +31,8 @@ Daftar aset lingkungan permainan. Sumber mentah (sebelum diproses) disimpan di l
 - Objek dibuat di latar putih, lalu latar dihapus menjadi transparan dan dipotong sesuai isi.
 - Ubin disimpan sebagai JPG persegi 256 px.
 - Bila aset tidak ditemukan, GameView memakai bentuk sederhana sebagai cadangan.
+
+## Status pixel (diperbarui)
+- Sudah pixel: `env_hole`, `env_rock`, `env_bush`, `env_tree`, `env_fence`, `env_windmill` (latar putih dibuat transparan), `env_grass_tile`, `env_dirt_tile`.
+- Catatan: `env_hole` masih punya kotak latar hijau; perlu dibersihkan lagi.
+- `board_bg.jpg` tetap gambar referensi user.
