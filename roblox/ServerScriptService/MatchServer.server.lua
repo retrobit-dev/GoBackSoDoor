@@ -4,10 +4,9 @@
 -- Nama yang harus ada di Workspace (sesuaikan dengan papan Anda):
 --   Workspace.Board.StartZone        Part: area start penyerang
 --   Workspace.Board.FinishLine       Part: garis finis di sisi atas (CanTouch = true)
---   Workspace.Board.RowBoundaries    Folder berisi Part batas antar baris
---   Workspace.Board.ColumnBoundaries Folder berisi Part batas antar kolom
--- Setiap Part batas punya atribut Index (angka, 1 = paling dekat start).
--- Remote di ReplicatedStorage > Remotes: ChooseRole, Sprint, Push, StateUpdate.
+--   Workspace.Board.RowBoundaries    Folder berisi Part batas antar baris (Kind = "Row", Index = angka)
+--   Workspace.Board.ColumnBoundaries Folder berisi Part batas antar kolom (Kind = "Column")
+-- Remote di ReplicatedStorage > Remotes: ChooseRole, Sprint, Push, PickLine, StateUpdate.
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,6 +17,7 @@ local Remotes = RS:WaitForChild("Remotes")
 local ChooseRole = Remotes:WaitForChild("ChooseRole")
 local Sprint = Remotes:WaitForChild("Sprint")
 local Push = Remotes:WaitForChild("Push")
+local PickLine = Remotes:WaitForChild("PickLine")
 local StateUpdate = Remotes:WaitForChild("StateUpdate")
 
 local board = workspace:WaitForChild("Board")
@@ -31,11 +31,11 @@ local attackingTeam = "A"
 local scores = {A = 0, B = 0}
 local matchLeft = Config.MATCH_TIME
 local turnLeft = Config.TURN_TIME
-local info = {}                  -- [player] = {team = "A"|"B", role = "attacker"|"guard"|nil}
+local info = {}                  -- [player] = {team, role, line, running}
 local stamina = {}               -- [player] = angka
-local lastUse = {}               -- [player] = waktu terakhir stamina dipakai
+local lastUse = {}               -- [player] = os.clock() terakhir stamina dipakai
 local scored = {}                -- [player] = true jika penyerang sudah mencapai finis di giliran ini
-local progress = {}              -- [player] = indeks batas terjauh yang pernah dilewati penyerang
+local progress = {}              -- [player] = indeks batas terjauh yang sudah dilewati penyerang
 local lastGood = {}              -- [player] = CFrame terakhir yang sah untuk penyerang
 
 -- ===== Helper =====
@@ -63,13 +63,12 @@ local function broadcast()
 	})
 end
 
--- Indeks batas yang sudah dilewati, berdasarkan posisi Z relatif terhadap start.
+-- Indeks batas yang sudah dilewati, berdasarkan posisi Z. Maju = Z bertambah.
 local function progressIndex(pos)
 	local idx = 0
 	for _, part in ipairs(rowBounds) do
 		local n = part:GetAttribute("Index") or 0
-		local forwardOfLine = pos.Z > part.Position.Z
-		if forwardOfLine and n > idx then idx = n end
+		if pos.Z > part.Position.Z and n > idx then idx = n end
 	end
 	return idx
 end
@@ -77,14 +76,11 @@ end
 -- ===== Giliran =====
 local function endTurn(reason)
 	if phase == "ended" then return end
-	if phase == "tiebreak" then
-		-- babak tambahan: jika belum ada pemenang, penjaga menang saat waktu habis
-		if reason == "time" then
-			phase = "ended"
-			print("Babak tambahan selesai, penjaga menang (skor seri).")
-			broadcast()
-			return
-		end
+	if phase == "tiebreak" and reason == "time" then
+		phase = "ended"
+		print("Babak tambahan selesai, penjaga menang (skor seri).")
+		broadcast()
+		return
 	end
 	attackingTeam = otherTeam(attackingTeam)
 	turnLeft = Config.TURN_TIME
@@ -112,7 +108,6 @@ local function attackerScored(p)
 	if all then endTurn("semua penyerang sudah mendapat poin") else broadcast() end
 end
 
--- Penyentuhan finis
 finishLine.Touched:Connect(function(hit)
 	local p = Players:GetPlayerFromCharacter(hit.Parent)
 	if not p or phase == "lobby" or phase == "ended" then return end
@@ -122,7 +117,6 @@ finishLine.Touched:Connect(function(hit)
 	end
 end)
 
--- ===== Penjaga menyentuh penyerang (dari Push) =====
 local function guardTouchedAttacker(guard, attacker)
 	if phase == "lobby" or phase == "ended" then return end
 	print(guard.Name, "menyentuh", attacker.Name)
@@ -135,9 +129,9 @@ local function guardTouchedAttacker(guard, attacker)
 	endTurn("penjaga menyentuh penyerang")
 end
 
--- ===== Lobi & pemilihan peran =====
+-- ===== Lobi, peran, dan garis penjaga =====
 Players.PlayerAdded:Connect(function(p)
-	info[p] = {team = nil, role = nil}
+	info[p] = {team = nil, role = nil, line = nil, running = false}
 	stamina[p] = Config.STAMINA_MAX
 	lastUse[p] = 0
 end)
@@ -153,11 +147,28 @@ ChooseRole.OnServerEvent:Connect(function(p, role)
 	info[p].role = role
 end)
 
+-- Penjaga memilih garis batas. Server memeriksa bahwa Part itu memang garis batas.
+PickLine.OnServerEvent:Connect(function(p, part)
+	local d = info[p]
+	if not d or d.role ~= "guard" or typeof(part) ~= "Instance" then return end
+	if part.Parent ~= board.RowBoundaries and part.Parent ~= board.ColumnBoundaries then return end
+	d.line = part
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+	if root then
+		-- Pindahkan penjaga ke garis, di sisi X atau Z sesuai jenis garis.
+		local pos = root.Position
+		if part:GetAttribute("Kind") == "Row" then
+			root.CFrame = CFrame.new(pos.X, pos.Y, part.Position.Z)
+		else
+			root.CFrame = CFrame.new(part.Position.X, pos.Y, pos.Z)
+		end
+	end
+end)
+
 local function startMatchIfReady()
 	if phase ~= "lobby" then return end
 	local list = Players:GetPlayers()
 	if #list < Config.MIN_PLAYERS then return end
-	-- Bagi tim berdasarkan urutan masuk: 5 pertama tim A, 5 berikutnya tim B.
 	for i, p in ipairs(list) do
 		info[p].team = (i <= #list / 2) and "A" or "B"
 		if not info[p].role then info[p].role = "guard" end
@@ -183,8 +194,7 @@ task.spawn(function()
 					print("Skor seri. Babak tambahan 3 menit dimulai.")
 				else
 					phase = "ended"
-					local winner = scores.A > scores.B and "A" or "B"
-					print("Waktu habis. Tim", winner, "menang.")
+					print("Waktu habis. Tim", scores.A > scores.B and "A" or "B", "menang.")
 				end
 			elseif turnLeft <= 0 then
 				endTurn("waktu giliran habis")
@@ -198,47 +208,10 @@ task.spawn(function()
 	end
 end)
 
--- ===== Stamina dan batas gerak (setiap frame) =====
-RunService.Heartbeat:Connect(function(dt)
-	for p, d in pairs(info) do
-		local char = p.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if hum then
-			-- Stamina terisi jika tidak dipakai.
-			if os.clock() - lastUse[p] >= Config.STAMINA_REGEN_DELAY then
-				stamina[p] = math.min(Config.STAMINA_MAX, stamina[p] + Config.STAMINA_REGEN * dt)
-			end
-		end
-		-- Penyerang tidak boleh kembali melewati batas yang sudah dilewati.
-		if char and d.role == "attacker" and d.team == attackingTeam then
-			local root = char:FindFirstChild("HumanoidRootPart")
-			if root then
-				local idx = progressIndex(root.Position)
-				local best = progress[p] or 0
-				if idx >= best then
-					progress[p] = idx
-					lastGood[p] = root.CFrame
-				elseif lastGood[p] then
-					root.CFrame = lastGood[p]
-				end
-			end
-		end
-	end
-end)
-
 -- ===== Sprint =====
-Sprint.OnServerEvent:Connect(function(p, wantRun)
-	local char = p.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if not hum or not stamina[p] then return end
+Sprint.OnServerEvent:Connect(function(p, on)
 	local d = info[p]
-	if wantRun and d and d.role == "attacker" and stamina[p] > 0 then
-		hum.WalkSpeed = Config.RUN_SPEED
-		stamina[p] = math.max(0, stamina[p] - Config.RUN_COST * 0.05)
-		lastUse[p] = os.clock()
-	else
-		hum.WalkSpeed = Config.WALK_SPEED
-	end
+	if d then d.running = on == true end
 end)
 
 -- ===== Dorongan tangan penjaga =====
@@ -246,8 +219,7 @@ Push.OnServerEvent:Connect(function(p)
 	local d = info[p]
 	if not d or d.role ~= "guard" or d.team == attackingTeam then return end
 	if stamina[p] < Config.PUSH_COST then return end
-	local char = p.Character
-	local root = char and char:FindFirstChild("HumanoidRootPart")
+	local root = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
 	stamina[p] -= Config.PUSH_COST
 	lastUse[p] = os.clock()
@@ -258,32 +230,65 @@ Push.OnServerEvent:Connect(function(p)
 		if aroot then
 			local offset = aroot.Position - root.Position
 			local dist = offset.Magnitude
-			if dist <= Config.PUSH_RANGE and dist > 0 then
-				if root.CFrame.LookVector:Dot(offset.Unit) >= cosLimit then
-					guardTouchedAttacker(p, attacker)
-					return
-				end
+			if dist > 0 and dist <= Config.PUSH_RANGE and root.CFrame.LookVector:Dot(offset.Unit) >= cosLimit then
+				guardTouchedAttacker(p, attacker)
+				return
 			end
 		end
 	end
 end)
 
--- ===== Batas gerak penjaga =====
--- Penjaga batas baris: hanya bergerak kiri-kanan (sumbu X) pada garis Part-nya.
--- Penjaga batas kolom: bergerak sepanjang Z pada garis kolomnya.
--- Atribut Part pada batas: Kind = "Row" atau "Column".
-RunService.Heartbeat:Connect(function()
+-- ===== Stamina, lari, dan batas gerak (setiap frame) =====
+RunService.Heartbeat:Connect(function(dt)
 	for p, d in pairs(info) do
-		if d.role == "guard" and p.Character then
-			local root = p.Character:FindFirstChild("HumanoidRootPart")
-			local line = root and root:GetAttribute("OnLine") and board:FindFirstChild(root:GetAttribute("OnLine"), true)
-			if line then
-				local pos = root.Position
-				if line:GetAttribute("Kind") == "Row" then
-					root.CFrame = CFrame.new(pos.X, pos.Y, line.Position.Z) * (root.CFrame - root.CFrame.Position)
-				else
-					root.CFrame = CFrame.new(line.Position.X, pos.Y, pos.Z) * (root.CFrame - root.CFrame.Position)
+		local char = p.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if not hum or not root then continue end
+
+		-- Lari: hanya penyerang, hanya saat bergerak, dan memakai stamina per detik.
+		local moving = hum.MoveDirection.Magnitude > 0
+		local canRun = d.running and d.role == "attacker" and stamina[p] > 0 and moving
+		hum.WalkSpeed = canRun and Config.RUN_SPEED or Config.WALK_SPEED
+		if canRun then
+			stamina[p] = math.max(0, stamina[p] - Config.RUN_COST * dt)
+			lastUse[p] = os.clock()
+		end
+
+		-- Stamina terisi jika tidak dipakai.
+		if os.clock() - (lastUse[p] or 0) >= Config.STAMINA_REGEN_DELAY then
+			stamina[p] = math.min(Config.STAMINA_MAX, stamina[p] + Config.STAMINA_REGEN * dt)
+		end
+
+		if d.role == "attacker" and d.team == attackingTeam then
+			-- Penyerang tidak boleh kembali melewati batas yang sudah dilewati.
+			local idx = progressIndex(root.Position)
+			local best = progress[p] or 0
+			if idx >= best then
+				progress[p] = idx
+				lastGood[p] = root.CFrame
+			elseif lastGood[p] then
+				root.CFrame = lastGood[p]
+			end
+		elseif d.role == "guard" and d.line then
+			-- Penjaga tetap di garisnya.
+			local line = d.line
+			local pos = root.Position
+			if line:GetAttribute("Kind") == "Row" then
+				-- Batas baris: hanya kiri-kanan (sumbu X) di garis Z-nya.
+				local half = line.Size.X / 2
+				local x = math.clamp(pos.X, line.Position.X - half, line.Position.X + half)
+				local look = root.CFrame.LookVector
+				-- Penjaga tidak boleh menghadap ke arah Config.GUARD_FORBIDDEN_FACING.
+				if look:Dot(Config.GUARD_FORBIDDEN_FACING) > 0.5 then
+					look = -Config.GUARD_FORBIDDEN_FACING
 				end
+				root.CFrame = CFrame.lookAt(Vector3.new(x, pos.Y, line.Position.Z), Vector3.new(x, pos.Y, line.Position.Z) + look)
+			else
+				-- Batas kolom: bergerak di sepanjang garis (sumbu Z). Boleh menghadap ke mana saja.
+				local half = line.Size.Z / 2
+				local z = math.clamp(pos.Z, line.Position.Z - half, line.Position.Z + half)
+				root.CFrame = CFrame.new(line.Position.X, pos.Y, z) * (root.CFrame - root.CFrame.Position)
 			end
 		end
 	end

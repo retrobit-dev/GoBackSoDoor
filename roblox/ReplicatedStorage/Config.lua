@@ -21,4 +21,8 @@ Config.RUN_SPEED = 16
 Config.PUSH_RANGE = 5            -- studs
 Config.PUSH_ANGLE = 60           -- derajat dari arah hadap, ke kiri atau kanan
 
+-- Arah dunia yang tidak boleh dihadapi penjaga batas baris.
+-- Asumsi: penyerang maju ke +Z, jadi +Z adalah belakang penjaga. Ubah jika papan Anda berbeda.
+Config.GUARD_FORBIDDEN_FACING = Vector3.new(0, 0, 1)
+
 return Config

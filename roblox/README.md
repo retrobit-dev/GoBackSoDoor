@@ -25,13 +25,26 @@ Skrip ini dibuat dari `docs/roblox-aturan.md`. **Belum diuji di Roblox Studio.**
 - Stamina: terisi saat tidak dipakai. Berlari (penyerang) dan dorongan tangan (penjaga) memakai stamina.
 - Penyerang tidak bisa kembali melewati batas yang sudah dilewati.
 
-## Yang belum selesai (perlu dikerjakan di Studio)
-- **Input klien:** skrip `LocalScript` untuk tombol lari (Shift), dorong (misalnya tombol E), dan tombol memilih peran. Server sudah menerima remote-nya.
-- **Penjaga tidak boleh menghadap ke belakang:** belum dibatasi di server. Ini perlu ditambahkan setelah gerak penjaga diuji.
-- **Pembatasan penjaga baris dan kolom:** skrip memakai atribut `OnLine` pada `HumanoidRootPart` untuk mengetahui garis yang sedang dipegang. Atribut ini harus diisi saat penjaga memilih posisi. Belum ada logikanya.
-- **Stamina lari:** sekarang dikurangi per panggilan `Sprint`. Sebaiknya dihitung per detik di Heartbeat, tetapi itu perlu diuji.
+## Input (LocalScript)
+- Letakkan `StarterPlayer/StarterPlayerScripts/InputController.client.lua` di StarterPlayerScripts.
+- Tombol: `1` penyerang, `2` penjaga, tahan `Shift` untuk lari, `E` untuk dorong tangan, `Q` lalu klik garis batas untuk memilih garis (penjaga).
+- Tambahkan RemoteEvent `PickLine` di folder `Remotes`.
+
+## Pembatasan penjaga
+- **Batas baris:** penjaga hanya bergerak kiri-kanan di garisnya. Ia tidak boleh menghadap `Config.GUARD_FORBIDDEN_FACING`.
+- **Batas kolom:** penjaga bergerak sepanjang garisnya dan boleh menghadap ke arah mana pun.
+- Penjaga memilih garis lewat `PickLine`. Server hanya menerima Part yang berada di `RowBoundaries` atau `ColumnBoundaries`.
+
+## Asumsi yang perlu dicek di Studio
+- **Arah maju penyerang:** +Z (menuju garis finis). Jika papan Anda berbeda, ubah `progressIndex` dan `GUARD_FORBIDDEN_FACING`.
+- **Lebar garis:** garis batas harus memanjang sesuai ruang geraknya. Penjaga dibatasi dalam `Size` Part-nya.
+- **Stamina lari:** dikurangi per detik di Heartbeat, hanya saat penyerang sedang berlari dan bergerak.
+
+## Yang belum selesai
 - **Animasi tangan:** belum ada. Dorongan hanya memakai jarak dan sudut.
-- **Pilihan peran:** semua pemain masuk sebagai penjaga kecuali memilih penyerang lewat `ChooseRole`.
+- **Input mobile:** belum ada.
+- **Pemilihan peran:** semua pemain masuk sebagai penjaga kecuali memilih penyerang lewat `ChooseRole`. Belum ada tampilan tombolnya.
+- **Pengujian:** belum dijalankan di Roblox Studio. Pembatasan dengan `CFrame` setiap frame bisa bertabrakan dengan fisika karakter, jadi perlu dicek saat uji coba.
 
 ## Catatan
 - Angka stamina, kecepatan, dan jangkauan dorongan ada di `Config`. Ubah sesuai hasil uji.
