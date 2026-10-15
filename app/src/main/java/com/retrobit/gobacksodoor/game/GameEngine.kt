@@ -91,10 +91,10 @@ sealed class Card {
     }
 }
 
-/** Pemain di papan: penyerang atau penjaga, lengkap dengan karakter dan stamina. */
 /** Event visual untuk tampilan: jenis ("touch", "hit", "hole", "bush"), sel, dan waktu (ms). */
 data class Fx(val kind: String, val x: Int, val y: Int, val at: Long)
 
+/** Pemain di papan: penyerang atau penjaga, lengkap dengan karakter dan stamina. */
 class Piece(
     val id: String,
     val side: Side,
@@ -179,6 +179,8 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
     var owed: Owed? = null
         private set
     var message: String = ""
+        private set
+
     /** Event efek terbaru untuk tampilan. Tidak dipakai oleh aturan permainan. */
     val effects = mutableListOf<Fx>()
 
@@ -186,7 +188,6 @@ class GameEngine(private val random: Random = Random.Default, private val obstac
         effects.add(Fx(kind, x, y, System.currentTimeMillis()))
         if (effects.size > 12) effects.removeAt(0)
     }
-        private set
 
     val attackers: MutableList<Piece> = mutableListOf()
     val guards: MutableList<Piece> = mutableListOf()
